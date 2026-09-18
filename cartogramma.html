@@ -22,6 +22,7 @@ body{font-family:var(--font);color:var(--ink);background:var(--panel);font-size:
 aside{height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:0 0 40px}
 header{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
 header h1{font-size:24px;font-weight:700;font-stretch:87.5%;letter-spacing:-.01em;margin:0}
+header h1 span{font-size:12px;font-weight:500;font-stretch:100%;letter-spacing:0;color:var(--ink-soft);margin-left:6px;font-variant-numeric:tabular-nums}
 header p{margin:4px 0 0;color:var(--ink-soft);font-size:13px}
 details.step{border-bottom:1px solid var(--line)}
 details.step>summary{list-style:none;cursor:pointer;padding:13px 20px;display:flex;align-items:baseline;gap:10px;font-weight:600;font-size:15px}
@@ -94,7 +95,7 @@ main{position:relative;height:100vh}
 <body>
 <aside>
   <header>
-    <h1>Cartogramma</h1>
+    <h1>Cartogramma <span id="ver" title="Versione del file"></span></h1>
     <p>Colora i comuni in base ai tuoi dati ed esporta la mappa in vettoriale.</p>
     <div class="row" style="margin:12px 0 0">
       <button id="prjSave">Salva progetto</button><button id="prjOpen">Apri progetto</button>
@@ -251,6 +252,7 @@ main{position:relative;height:100vh}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 "use strict";
+const VERSION="1.5",VERSION_DATE="18.09.2026";
 /* ---------- tabelle ISTAT ---------- */
 const REG={1:"Piemonte",2:"Valle d'Aosta",3:"Lombardia",4:"Trentino-Alto Adige",5:"Veneto",6:"Friuli-Venezia Giulia",7:"Liguria",8:"Emilia-Romagna",9:"Toscana",10:"Umbria",11:"Marche",12:"Lazio",13:"Abruzzo",14:"Molise",15:"Campania",16:"Puglia",17:"Basilicata",18:"Calabria",19:"Sicilia",20:"Sardegna"};
 const PROV={1:["Torino","TO",1],2:["Vercelli","VC",1],3:["Novara","NO",1],4:["Cuneo","CN",1],5:["Asti","AT",1],6:["Alessandria","AL",1],96:["Biella","BI",1],103:["Verbano-Cusio-Ossola","VB",1],7:["Aosta","AO",2],
@@ -828,7 +830,7 @@ function buildSVG(V,bgUrl,pxScale,params){
   for(const f of vis)f._d=pathD(f,V);
   o.push(`<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${r2(W*(pxScale||1))}" height="${r2(H*(pxScale||1))}" viewBox="0 0 ${W} ${H}">`);
   o.push(`<title>${esc(params.length>1?"Cartogramma":($("#legTitle").value||cur||"Cartogramma"))}</title>`);
-  o.push(`<metadata>Riquadro WGS84 O,S,E,N: ${[b.w,b.s,b.e,b.n].map(v=>v.toFixed(6)).join(", ")}</metadata>`);
+  o.push(`<metadata>Cartogramma v${VERSION}. Riquadro WGS84 O,S,E,N: ${[b.w,b.s,b.e,b.n].map(v=>v.toFixed(6)).join(", ")}</metadata>`);
   o.push(`<defs><clipPath id="vista"><rect width="${W}" height="${H}"/></clipPath></defs>`);
   if(bgUrl!==false)o.push(`<rect id="fondo" width="${W}" height="${H}" fill="#ffffff"/>`);
   if(bgUrl)o.push(`<image id="sfondo" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" opacity="${$("#baseOp").value/100}" xlink:href="${bgUrl}" href="${bgUrl}"/>`);
@@ -885,7 +887,7 @@ async function saveProject(){
   await busy("Preparazione del progetto…");
   const all=$("#prjAll").checked,feats=S.feats.filter(f=>all||S.selected.has(f.id)).map(f=>{prep(f);return{name:f.name,code:f.code,prov:f.prov,sigla:f.sigla,reg:f.reg,sel:S.selected.has(f.id)?1:0,geom:f.geom};});
   S.styles[S.param]=snap();
-  const prj={app:"cartogramma",v:1,saved:new Date().toISOString(),param:S.param,frame:S.frame,controls:Object.fromEntries(GLOBAL_KEYS.map(k=>[k,getCtl(k)])),styles:S.styles,sources:S.sources,features:feats};
+  const prj={app:"cartogramma",v:1,appVersion:VERSION,saved:new Date().toISOString(),param:S.param,frame:S.frame,controls:Object.fromEntries(GLOBAL_KEYS.map(k=>[k,getCtl(k)])),styles:S.styles,sources:S.sources,features:feats};
   save(new Blob([JSON.stringify(prj)],{type:"application/json"}),"progetto_"+stamp()+".cartogramma.json");
   await busy("");msg("#prjMsg","ok",`Progetto salvato: ${feats.length} confini, ${S.sources.length} file di dati, ${Object.keys(S.styles).filter(Boolean).length} stili. Le chiavi API non vengono incluse.`);
 }
@@ -908,6 +910,7 @@ async function loadProject(prj){
 }
 async function openProjectFile(file){let p;try{p=JSON.parse(await file.text());}catch(e){msg("#prjMsg","bad","File illeggibile: "+esc(e.message));return;}await loadProject(p);}
 
+$("#ver").textContent="v"+VERSION+" del "+VERSION_DATE;document.title="Cartogramma v"+VERSION+" – mappe tematiche per comuni";
 /* ---------- eventi ---------- */
 function bindDrop(zone,input,fn){
   const z=$(zone),i=$(input);z.onclick=()=>i.click();z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();i.click();}};
