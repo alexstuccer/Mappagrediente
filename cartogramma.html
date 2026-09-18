@@ -96,6 +96,12 @@ main{position:relative;height:100vh}
   <header>
     <h1>Cartogramma</h1>
     <p>Colora i comuni in base ai tuoi dati ed esporta la mappa in vettoriale.</p>
+    <div class="row" style="margin:12px 0 0">
+      <button id="prjSave">Salva progetto</button><button id="prjOpen">Apri progetto</button>
+      <input type="file" id="prjFile" accept=".json,.cartogramma" hidden>
+    </div>
+    <label class="hint" style="display:block"><input type="checkbox" id="prjAll"> Includi anche i confini non selezionati</label>
+    <div class="msg" id="prjMsg"></div>
   </header>
 
   <details class="step" open id="st1">
@@ -173,7 +179,8 @@ main{position:relative;height:100vh}
         <input type="number" id="nclass" min="2" max="9" value="5" style="width:60px" title="Numero di classi"></div></div>
       <div class="row"><label class="k">Minimo e massimo</label><div class="v"><input type="number" id="vmin" placeholder="auto" step="any"><input type="number" id="vmax" placeholder="auto" step="any"></div></div>
       <div class="row"><label class="k" for="fillOp">Opacità colore</label><div class="v"><input type="range" id="fillOp" min="0" max="100" value="80"></div></div>
-      <div class="row"><label class="k">Senza dato</label><div class="v"><input type="color" id="ndColor" value="#d9dde1"><span class="hint" style="margin:0">colore dei comuni senza valore</span></div></div>
+      <div class="row"><label class="k">Senza dato</label><div class="v"><input type="color" id="ndColor" value="#d9dde1"><input type="range" id="ndOp" min="0" max="100" value="80" title="Opacità dei comuni senza valore"></div></div>
+      <p class="hint" style="margin-left:126px">Colore e opacità dei comuni selezionati che non hanno un valore, indipendenti dal resto. A zero restano solo i bordi.</p>
       <div class="row"><label class="k">Bordo</label><div class="v"><input type="color" id="strokeC" value="#ffffff"><input type="range" id="strokeW" min="0" max="30" value="8" title="Spessore"></div></div>
       <div class="row"><label class="k" for="labels">Etichette</label><div class="v">
         <select id="labels"><option value="">Nessuna</option><option value="n">Nome</option><option value="v">Valore</option><option value="nv">Nome e valore</option></select>
@@ -408,6 +415,7 @@ async function loadGeoFiles(files){
   for(const file of files){
     await busy("Lettura di "+file.name+"…");
     let gj;try{gj=JSON.parse(await file.text());}catch(e){msg("#geoMsg","bad",esc(file.name)+" non è un JSON valido.");continue;}
+    if(gj&&gj.app==="cartogramma"){await loadProject(gj);return;}
     let feats=[];
     if(gj.type==="Topology"){
       if(!window.topojson){msg("#geoMsg","bad","Libreria TopoJSON non caricata: converti il file in GeoJSON.");continue;}
@@ -642,7 +650,7 @@ function setParam(p){
 }
 function styleOf(id){
   const v=SCALE?SCALE.m.get(id):null,w=$("#strokeW").value/10;
-  return{fillColor:v!=null?SCALE.color(v):$("#ndColor").value,fillOpacity:$("#fillOp").value/100,color:$("#strokeC").value,weight:w,opacity:w?1:0,stroke:w>0};
+  return{fillColor:v!=null?SCALE.color(v):$("#ndColor").value,fillOpacity:(v!=null?$("#fillOp").value:$("#ndOp").value)/100,color:$("#strokeC").value,weight:w,opacity:w?1:0,stroke:w>0};
 }
 function legendModel(){
   if(!$("#legShow").checked||!SCALE)return null;
@@ -656,7 +664,7 @@ function drawLegend(){
   let h=`<b>${esc(L_.title)}</b>`;
   if(L_.cont)h+=`<div class="bar" style="background:linear-gradient(90deg,${L_.st.join(",")})"></div><div class="ticks">${L_.ticks.map(t=>"<span>"+t+"</span>").join("")}</div>`;
   else h+=L_.items.map(i=>`<div class="it"><span class="sw" style="background:${i.color}"></span>${esc(i.label)}</div>`).join("");
-  if(L_.nd)h+=`<div class="it" style="margin-top:5px"><span class="sw" style="background:${L_.ndColor}"></span>Nessun dato</div>`;
+  if(L_.nd)h+=`<div class="it" style="margin-top:5px"><span class="sw" style="background:${L_.ndColor};opacity:${Math.max(.15,$("#ndOp").value/100)}"></span>Nessun dato</div>`;
   el.innerHTML=h;
 }
 
@@ -793,7 +801,7 @@ function layerSVG(V,vis,sfx,visible){
   o.push(`<g clip-path="url(#vista)">`);
   o.push(`<g id="comuni${sfx}" fill-opacity="${$("#fillOp").value/100}" stroke="${sw?$("#strokeC").value:"none"}" stroke-width="${sw}" stroke-linejoin="round" fill-rule="evenodd">`);
   for(const f of vis){const v=SCALE?SCALE.m.get(f.id):null,d=f._d;if(!d)continue;
-    o.push(`<path id="c_${esc(f.code||("n"+f.id))}${sfx}" data-comune="${esc(f.name)}" data-provincia="${esc(f.sigla||f.prov)}"${v!=null?` data-valore="${v}"`:""} fill="${styleOf(f.id).fillColor}" d="${d}"><title>${esc(f.name)}${v!=null?": "+fmt(v):""}</title></path>`);}
+    o.push(`<path id="c_${esc(f.code||("n"+f.id))}${sfx}" data-comune="${esc(f.name)}" data-provincia="${esc(f.sigla||f.prov)}"${v!=null?` data-valore="${v}"`:` fill-opacity="${$("#ndOp").value/100}"`} fill="${styleOf(f.id).fillColor}" d="${d}"><title>${esc(f.name)}${v!=null?": "+fmt(v):""}</title></path>`);}
   o.push(`</g>`);
   if($("#labels").value){const fs=+$("#labelSize").value||10;
     o.push(`<g id="etichette${sfx}" ${FONT} font-size="${fs}" font-weight="bold" text-anchor="middle">`);
@@ -869,6 +877,37 @@ function exportGeo(){
   save(new Blob([JSON.stringify(fc)],{type:"application/geo+json"}),"selezione_"+stamp()+".geojson");
 }
 
+/* ---------- progetto ---------- */
+const GLOBAL_KEYS=["fillOp","ndColor","ndOp","strokeC","strokeW","labels","labelSize","spot","spotC","spotOp","base","baseOp","gray","legShow","ratio","expW","mult","embedBg","attr","baseUrl","baseAttr"];
+const getCtl=k=>{const e=$("#"+k);return e.type==="checkbox"?e.checked:e.value;};
+const setCtl=(k,v)=>{const e=$("#"+k);if(!e||v==null)return;e.type==="checkbox"?e.checked=!!v:e.value=v;};
+async function saveProject(){
+  await busy("Preparazione del progetto…");
+  const all=$("#prjAll").checked,feats=S.feats.filter(f=>all||S.selected.has(f.id)).map(f=>{prep(f);return{name:f.name,code:f.code,prov:f.prov,sigla:f.sigla,reg:f.reg,sel:S.selected.has(f.id)?1:0,geom:f.geom};});
+  S.styles[S.param]=snap();
+  const prj={app:"cartogramma",v:1,saved:new Date().toISOString(),param:S.param,frame:S.frame,controls:Object.fromEntries(GLOBAL_KEYS.map(k=>[k,getCtl(k)])),styles:S.styles,sources:S.sources,features:feats};
+  save(new Blob([JSON.stringify(prj)],{type:"application/json"}),"progetto_"+stamp()+".cartogramma.json");
+  await busy("");msg("#prjMsg","ok",`Progetto salvato: ${feats.length} confini, ${S.sources.length} file di dati, ${Object.keys(S.styles).filter(Boolean).length} stili. Le chiavi API non vengono incluse.`);
+}
+async function loadProject(prj){
+  if(!prj||prj.app!=="cartogramma"||!Array.isArray(prj.features)){msg("#prjMsg","bad","Non è un file di progetto di Cartogramma.");return;}
+  await busy("Apertura del progetto…");
+  for(const l of S.layers.values())map.removeLayer(l);S.layers.clear();
+  S.feats=[];S.byCode.clear();S.byName.clear();S.selected.clear();S.data=new Map();S.param="";
+  for(const f of prj.features)if(addFeature(f.name,f.code||"",f.prov,f.sigla,f.reg,f.geom,null,"progetto")&&f.sel)S.selected.add(S.feats.length-1);
+  S.sources=prj.sources||[];S.styles=prj.styles||{};
+  for(const k in prj.controls||{})setCtl(k,prj.controls[k]);
+  if(!BASEMAPS.hasOwnProperty($("#base").value))$("#base").selectedIndex=0;
+  buildTree();rematch();
+  if(prj.param&&S.data.has(prj.param)){S.param=prj.param;$("#param").value=prj.param;}
+  const st=S.styles[S.param];if(st)for(const k of STYLE_KEYS)setCtl(k,st[k]);
+  $("#map").classList.toggle("gray",$("#gray").checked);showCustom();setBase();baseNote();
+  setFrame(prj.frame&&prj.frame.w<prj.frame.e?prj.frame:null);doRefresh();updateChecks();
+  S.frame?fitFrame():fitSel();await busy("");
+  msg("#prjMsg","ok",`Progetto aperto: ${S.feats.length} confini, ${S.selected.size} selezionati, ${S.data.size} parametri.`);
+}
+async function openProjectFile(file){let p;try{p=JSON.parse(await file.text());}catch(e){msg("#prjMsg","bad","File illeggibile: "+esc(e.message));return;}await loadProject(p);}
+
 /* ---------- eventi ---------- */
 function bindDrop(zone,input,fn){
   const z=$(zone),i=$(input);z.onclick=()=>i.click();z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();i.click();}};
@@ -881,6 +920,8 @@ $("#srcList").onclick=e=>{const i=e.target.dataset.i;if(i==null)return;S.sources
 $("#frSel").onclick=frameFromSelection;$("#frView").onclick=frameFromView;$("#frDel").onclick=()=>setFrame(null);
 $("#ratio").onchange=()=>{if(S.frame)setFrame(fitRatio(S.frame,false));};
 $("#frBox").onchange=e=>{const v=e.target.value.split(/[;,\s]+/).map(Number).filter(x=>isFinite(x));if(v.length===4&&v[0]<v[2]&&v[1]<v[3]){setFrame({w:v[0],s:v[1],e:v[2],n:v[3]});fitFrame();}else if(!e.target.value.trim())setFrame(null);else msg("#expMsg","bad","Servono quattro numeri: ovest, sud, est, nord.");};
+$("#prjSave").onclick=saveProject;$("#prjOpen").onclick=()=>$("#prjFile").click();
+$("#prjFile").onchange=e=>{if(e.target.files[0])openProjectFile(e.target.files[0]);e.target.value="";};
 $("#expZip").onclick=()=>doExport("zip");$("#expLayers").onclick=()=>doExport("layers");
 try{const f=JSON.parse(localStorage.getItem("cartogramma.frame"));if(f&&f.w<f.e)setFrame(f);}catch(e){}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));$("#tab-file").hidden=b.dataset.tab!=="file";$("#tab-osm").hidden=b.dataset.tab!=="osm";});
@@ -893,7 +934,7 @@ $("#preset").innerHTML=Object.keys(PRESETS).map(k=>`<option>${k}</option>`).join
 {const free=[],keyed=[];for(const k in BASEMAPS)(BASEMAPS[k]&&BASEMAPS[k].key?keyed:free).push(`<option>${k}</option>`);
  $("#base").innerHTML=`<optgroup label="Senza chiave">${free.join("")}</optgroup><optgroup label="Con chiave API">${keyed.join("")}</optgroup>`;}
 $("#param").onchange=e=>{setParam(e.target.value);refresh();};
-for(const id of["preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","fillOp","ndColor","strokeC","strokeW","labels","labelSize","spot","spotC","spotOp","legShow","legTitle","unit","dec"])$("#"+id).addEventListener("input",refresh);
+for(const id of["preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","fillOp","ndColor","ndOp","strokeC","strokeW","labels","labelSize","spot","spotC","spotOp","legShow","legTitle","unit","dec"])$("#"+id).addEventListener("input",refresh);
 const LOCAL=location.protocol==="file:";
 function baseNote(){
   const kb=BASEMAPS[$("#base").value];
