@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartogramma – mappe tematiche per comuni</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@87.5..100,400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#18222d; --ink-soft:#52606d; --panel:#f3f5f7; --card:#ffffff; --line:#d5dbe1;
+  --accent:#1d5fa6; --accent-ink:#ffffff; --warn:#a8640c; --ok:#1f7a4d; --bad:#a3262a;
+  --font:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{--ink:#e6ebf0;--ink-soft:#9aa7b4;--panel:#151c24;--card:#1d2630;--line:#33404d;--accent:#5b9fe6;--accent-ink:#0c141c;--warn:#e0a24a;--ok:#5cc391;--bad:#ef8a8d}
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);color:var(--ink);background:var(--panel);font-size:14px;line-height:1.4;display:grid;grid-template-columns:400px 1fr;overflow:hidden}
+aside{height:100vh;overflow-y:auto;border-right:1px solid var(--line);padding:0 0 40px}
+header{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+header h1{font-size:24px;font-weight:700;font-stretch:87.5%;letter-spacing:-.01em;margin:0}
+header p{margin:4px 0 0;color:var(--ink-soft);font-size:13px}
+details.step{border-bottom:1px solid var(--line)}
+details.step>summary{list-style:none;cursor:pointer;padding:13px 20px;display:flex;align-items:baseline;gap:10px;font-weight:600;font-size:15px}
+details.step>summary::-webkit-details-marker{display:none}
+details.step>summary .n{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;width:14px}
+details.step>summary .state{margin-left:auto;font-weight:400;font-size:12px;color:var(--ink-soft)}
+details.step>.body{padding:2px 20px 18px 44px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.row>label.k{flex:0 0 118px;color:var(--ink-soft);font-size:13px}
+.row>.v{flex:1;min-width:0;display:flex;gap:6px;align-items:center}
+input[type=text],input[type=password],input[type=number],select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:5px 7px;width:100%;min-width:0}
+input[type=number]{font-variant-numeric:tabular-nums}
+input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--card);flex:0 0 auto}
+input[type=range]{width:100%;accent-color:var(--accent)}
+textarea{min-height:84px;resize:vertical;font-size:13px}
+button{font:inherit;font-weight:600;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:4px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.hint{color:var(--ink-soft);font-size:12.5px;margin:6px 0}
+.msg{font-size:12.5px;margin:8px 0;padding:7px 9px;border-left:3px solid var(--line);background:var(--card)}
+.msg.ok{border-color:var(--ok)} .msg.warn{border-color:var(--warn)} .msg.bad{border-color:var(--bad)}
+.msg:empty{display:none}
+.drop{border:1.5px dashed var(--line);border-radius:6px;padding:14px;text-align:center;background:var(--card);cursor:pointer;font-size:13px}
+.drop.over{border-color:var(--accent)}
+.drop strong{display:block;font-size:14px}
+.tabs{display:flex;gap:0;margin:0 0 10px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent;font-weight:500}
+.tabs button[aria-selected=true]{background:var(--accent);color:var(--accent-ink)}
+#tree,#results{max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:4px;background:var(--card);padding:4px 0;font-size:13px}
+.node{display:flex;align-items:center;gap:4px;padding:2px 8px}
+.node:hover{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.node .caret{border:0;background:none;padding:0;width:16px;font-size:10px;color:var(--ink-soft)}
+.node label{flex:1;display:flex;gap:6px;align-items:center;cursor:pointer;min-width:0}
+.node label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .cnt{color:var(--ink-soft);font-size:11.5px;font-variant-numeric:tabular-nums}
+.kids{padding-left:18px}
+.kids .kids .node{padding-left:24px}
+.ramp{height:14px;border-radius:3px;border:1px solid var(--line);margin:6px 0 2px}
+table.spec{border-collapse:collapse;font-size:12.5px;width:100%;margin:6px 0;background:var(--card)}
+table.spec th,table.spec td{border:1px solid var(--line);padding:3px 6px;text-align:left}
+table.spec th{font-weight:600}
+table.spec td.num{text-align:right;font-variant-numeric:tabular-nums}
+details.more{margin:6px 0;font-size:12.5px}
+details.more summary{cursor:pointer;color:var(--accent)}
+details.more ul{margin:4px 0;padding-left:18px;max-height:140px;overflow:auto}
+h3{font-size:13px;margin:16px 0 4px;font-weight:700}
+main{position:relative;height:100vh}
+#map{position:absolute;inset:0;background:#fff}
+#map.gray .leaflet-tile-pane{filter:grayscale(1)}
+.legend{background:rgba(255,255,255,.94);color:#18222d;padding:9px 11px;border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.25);font:12px/1.35 Helvetica,Arial,sans-serif;min-width:150px}
+.legend b{display:block;margin-bottom:5px;font-size:12.5px}
+.legend .bar{height:12px;width:190px;border:1px solid #9aa}
+.legend .ticks{display:flex;justify-content:space-between;width:190px;font-variant-numeric:tabular-nums;margin-top:2px}
+.legend .it{display:flex;align-items:center;gap:6px;margin:2px 0;font-variant-numeric:tabular-nums}
+.legend .sw{width:14px;height:14px;border:1px solid #9aa;flex:0 0 auto}
+.lbl{pointer-events:none}
+.lbl div{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;text-align:center;font-family:Helvetica,Arial,sans-serif;font-weight:600;color:#111;line-height:1.1;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 3px #fff}
+#srcList{margin:8px 0;font-size:12.5px}
+#srcList div{display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--card);border:1px solid var(--line);border-radius:4px;margin:4px 0}
+#srcList span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#srcList button{padding:2px 7px;font-weight:500}
+.fh{width:13px;height:13px;background:#fff;border:2px solid #d4145a;border-radius:2px;box-shadow:0 0 3px rgba(0,0,0,.4);cursor:grab}
+.fh.c{border-radius:50%;background:#d4145a;cursor:move}
+#busy{position:absolute;z-index:1000;top:12px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:7px 14px;border-radius:4px;font-size:13px;display:none}
+@media (max-width:820px){body{grid-template-columns:1fr;grid-template-rows:auto 70vh;overflow:auto}aside{height:auto;border-right:0}main{height:70vh}}
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Cartogramma</h1>
+    <p>Colora i comuni in base ai tuoi dati ed esporta la mappa in vettoriale.</p>
+  </header>
+
+  <details class="step" open id="st1">
+    <summary><span class="n">1</span>Confini<span class="state" id="s1state">nessun confine caricato</span></summary>
+    <div class="body">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="file">Da file GeoJSON</button>
+        <button role="tab" aria-selected="false" data-tab="osm">Da OpenStreetMap</button>
+      </div>
+      <div id="tab-file">
+        <div class="drop" id="dropGeo" tabindex="0"><strong>Carica GeoJSON o TopoJSON</strong>Trascina qui i file o clicca. Puoi caricare tutta l'Italia: sulla mappa finisce solo ciò che selezioni.</div>
+        <input type="file" id="fileGeo" accept=".geojson,.json,.topojson" multiple hidden>
+        <p class="hint">Campi riconosciuti in automatico (openpolis, ISTAT, GADM). Coordinate UTM 32/33 e Web Mercator vengono convertite in WGS84.</p>
+      </div>
+      <div id="tab-osm" hidden>
+        <p class="hint">Un comune per riga. Per gli omonimi aggiungi la provincia dopo la virgola: <em>Castro, LE</em>.</p>
+        <textarea id="osmList" placeholder="Fara in Sabina&#10;Rieti&#10;Castro, LE"></textarea>
+        <div class="row">
+          <label class="k" for="osmDetail">Dettaglio confini</label>
+          <div class="v"><select id="osmDetail"><option value="0.00005">Massimo</option><option value="0.0002" selected>Alto</option><option value="0.0008">Medio</option><option value="0.003">Basso</option></select></div>
+        </div>
+        <div class="row">
+          <button class="primary" id="osmGo">Cerca i confini</button>
+          <button id="osmFromData" disabled>Usa i comuni non abbinati dell'Excel</button>
+          <button id="osmStop" hidden>Interrompi</button>
+        </div>
+        <p class="hint">Nominatim accetta una richiesta al secondo: 100 comuni richiedono circa 2 minuti. Per elenchi lunghi conviene il GeoJSON. Poi salva i confini trovati dal passo 5 per non riscaricarli.</p>
+      </div>
+      <div class="msg" id="geoMsg"></div>
+    </div>
+  </details>
+
+  <details class="step" id="st2">
+    <summary><span class="n">2</span>Selezione<span class="state" id="s2state">0 comuni</span></summary>
+    <div class="body">
+      <input type="text" id="search" placeholder="Cerca comune o provincia…">
+      <div id="tree" style="margin-top:8px"><p class="hint" style="padding:6px 10px">Carica prima i confini.</p></div>
+      <div id="results" hidden style="margin-top:8px"></div>
+      <div class="row">
+        <button id="selData" disabled>Seleziona i comuni con dati</button>
+        <button id="selFit">Inquadra</button>
+        <button id="selNone">Svuota</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="step" id="st3">
+    <summary><span class="n">3</span>Dati<span class="state" id="s3state">nessun dato</span></summary>
+    <div class="body">
+      <div class="drop" id="dropXls" tabindex="0"><strong>Carica uno o più Excel o CSV</strong>Ogni file aggiunge i suoi parametri come livelli. Viene letto il primo foglio.</div>
+      <input type="file" id="fileXls" accept=".xlsx,.xls,.ods,.csv" multiple hidden>
+      <div id="srcList"></div>
+      <div class="msg" id="xlsMsg"></div>
+      <h3>Struttura attesa</h3>
+      <table class="spec"><tr><th>Codice ISTAT</th><th>Comune</th><th>Provincia</th><th>Parametro</th><th>Valore</th></tr>
+        <tr><td>057027</td><td>Fara in Sabina</td><td>RI</td><td>Popolazione</td><td class="num">13.904</td></tr>
+        <tr><td>057027</td><td>Fara in Sabina</td><td>RI</td><td>Consumo kWh</td><td class="num">1.250</td></tr></table>
+      <p class="hint">Basta <em>Comune</em> oppure <em>Codice ISTAT</em>; la provincia serve solo per gli omonimi. Va bene anche il formato largo: una colonna per parametro.</p>
+      <button id="tpl">Scarica il modello Excel</button>
+    </div>
+  </details>
+
+  <details class="step" id="st4">
+    <summary><span class="n">4</span>Stile</summary>
+    <div class="body">
+      <div class="row"><label class="k" for="param">Parametro</label><div class="v"><select id="param"><option value="">—</option></select></div></div>
+      <div class="row"><label class="k" for="preset">Scala colori</label><div class="v"><select id="preset"></select></div></div>
+      <div class="ramp" id="rampPrev"></div>
+      <div class="row" id="customRow" hidden><label class="k">Colori</label><div class="v">
+        <input type="color" id="c1" value="#fff5b8" title="Minimo"><input type="color" id="c2" value="#f08a3c" title="Centro"><input type="color" id="c3" value="#7a1230" title="Massimo">
+        <label style="font-size:12.5px"><input type="checkbox" id="useMid" checked> centro</label></div></div>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="invert"> Inverti la scala</label></div></div>
+      <div class="row"><label class="k" for="mode">Classificazione</label><div class="v">
+        <select id="mode"><option value="cont">Continua</option><option value="eq">Classi uguali</option><option value="quant">Quantili</option></select>
+        <input type="number" id="nclass" min="2" max="9" value="5" style="width:60px" title="Numero di classi"></div></div>
+      <div class="row"><label class="k">Minimo e massimo</label><div class="v"><input type="number" id="vmin" placeholder="auto" step="any"><input type="number" id="vmax" placeholder="auto" step="any"></div></div>
+      <div class="row"><label class="k" for="fillOp">Opacità colore</label><div class="v"><input type="range" id="fillOp" min="0" max="100" value="80"></div></div>
+      <div class="row"><label class="k">Senza dato</label><div class="v"><input type="color" id="ndColor" value="#d9dde1"><span class="hint" style="margin:0">colore dei comuni senza valore</span></div></div>
+      <div class="row"><label class="k">Bordo</label><div class="v"><input type="color" id="strokeC" value="#ffffff"><input type="range" id="strokeW" min="0" max="30" value="8" title="Spessore"></div></div>
+      <div class="row"><label class="k" for="labels">Etichette</label><div class="v">
+        <select id="labels"><option value="">Nessuna</option><option value="n">Nome</option><option value="v">Valore</option><option value="nv">Nome e valore</option></select>
+        <input type="number" id="labelSize" min="6" max="24" value="10" style="width:60px" title="Dimensione in px"></div></div>
+
+      <h3>Spotlight</h3>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="spot"> Oscura ciò che sta fuori dalla selezione</label></div></div>
+      <div class="row"><label class="k">Velo</label><div class="v"><input type="color" id="spotC" value="#0f1a26"><input type="range" id="spotOp" min="0" max="100" value="55"></div></div>
+
+      <h3>Sfondo</h3>
+      <div class="row"><label class="k" for="base">Mappa</label><div class="v"><select id="base"></select></div></div>
+      <div id="customBase" hidden>
+        <div class="row"><label class="k" for="baseUrl">URL tessere</label><div class="v"><input type="text" id="baseUrl" placeholder="https://…/{z}/{x}/{y}.png?apikey=…"></div></div>
+        <div class="row"><label class="k" for="baseAttr">Attribuzione</label><div class="v"><input type="text" id="baseAttr" placeholder="© OpenStreetMap contributors, …"></div></div>
+        <p class="hint">Qualsiasi servizio XYZ con segnaposto {z} {x} {y} (e {s} facoltativo). Se il servizio vuole una chiave, mettila nell'URL. Per l'export dello sfondo il server deve consentire CORS.</p>
+      </div>
+      <details class="more" id="keysBox"><summary>Chiavi API dei servizi a registrazione</summary>
+        <div class="row"><label class="k" for="key_thunderforest">Thunderforest</label><div class="v"><input type="password" id="key_thunderforest" autocomplete="off" placeholder="apikey"></div></div>
+        <div class="row"><label class="k" for="key_stadia">Stadia / Stamen</label><div class="v"><input type="password" id="key_stadia" autocomplete="off" placeholder="api_key"></div></div>
+        <div class="row"><label class="k" for="key_maptiler">MapTiler</label><div class="v"><input type="password" id="key_maptiler" autocomplete="off" placeholder="key"></div></div>
+        <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="keyShow"> Mostra le chiavi</label></div></div>
+        <p class="hint">Le chiavi restano nel browser di questo computer: non finiscono nel file HTML né negli SVG esportati. Tutti e tre i servizi hanno un piano gratuito; verifica nei loro termini se copre l'uso commerciale.</p>
+      </details>
+      <div class="msg warn" id="baseMsg"></div>
+      <div class="row"><label class="k" for="baseOp">Opacità</label><div class="v"><input type="range" id="baseOp" min="0" max="100" value="100"></div></div>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="gray"> Scala di grigi</label></div></div>
+
+      <h3>Legenda</h3>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="legShow" checked> Mostra la legenda</label></div></div>
+      <div class="row"><label class="k" for="legTitle">Titolo</label><div class="v"><input type="text" id="legTitle" placeholder="nome del parametro"></div></div>
+      <div class="row"><label class="k" for="unit">Unità e decimali</label><div class="v"><input type="text" id="unit" placeholder="es. kWh"><input type="number" id="dec" min="0" max="6" value="1" style="width:60px"></div></div>
+    </div>
+  </details>
+
+  <details class="step" id="st5">
+    <summary><span class="n">5</span>Esporta</summary>
+    <div class="body">
+      <h3 style="margin-top:4px">Riquadro di esportazione</h3>
+      <p class="hint">Il riquadro è ancorato a coordinate geografiche: tutti gli export, di qualsiasi parametro, hanno la stessa identica inquadratura. Trascina gli angoli per ridimensionarlo e il punto centrale per spostarlo. Senza riquadro viene esportata la vista corrente.</p>
+      <div class="row"><label class="k" for="ratio">Proporzioni</label><div class="v"><select id="ratio"><option value="0">Libere</option><option value="1.41421" selected>A4 / A3 orizzontale</option><option value="0.70711">A4 / A3 verticale</option><option value="1.77778">16:9</option><option value="1.33333">4:3</option><option value="1">1:1</option></select></div></div>
+      <div class="row"><button id="frSel">Riquadro sulla selezione</button><button id="frView">Riquadro dalla vista</button><button id="frDel">Rimuovi</button></div>
+      <div class="row"><label class="k" for="frBox">O, S, E, N</label><div class="v"><input type="text" id="frBox" placeholder="nessun riquadro" title="Coordinate del riquadro: copiale per riusarle in un'altra sessione"></div></div>
+      <div class="row"><label class="k" for="expW">Larghezza SVG</label><div class="v"><input type="number" id="expW" value="1400" min="300" max="6000" step="50"><span class="hint" style="margin:0">unità; bordi ed etichette sono riferiti a questa misura</span></div></div>
+      <h3>File</h3>
+      <p class="hint">Comuni, velo, etichette e legenda restano vettoriali e in gruppi separati; lo sfondo è un PNG.</p>
+      <div class="row"><label class="k" for="mult">Risoluzione sfondo</label><div class="v"><select id="mult"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option><option value="4">4×</option><option value="6">6×</option></select></div></div>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="embedBg" checked> Incorpora lo sfondo nell'SVG</label></div></div>
+      <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="attr" checked> Attribuzione © OpenStreetMap</label></div></div>
+      <div class="row">
+        <button class="primary" id="expSvg">Scarica SVG</button>
+        <button id="expBg">Scarica sfondo PNG</button>
+        <button id="expPng">Scarica PNG completo</button>
+      </div>
+      <div class="row">
+        <button id="expZip">Tutti i parametri, un SVG ciascuno (ZIP)</button>
+        <button id="expLayers">Tutti i parametri in un SVG a livelli</button>
+      </div>
+      <div class="row"><button id="expGeo">Scarica GeoJSON della selezione</button></div>
+      <div class="msg" id="expMsg"></div>
+    </div>
+  </details>
+</aside>
+<main><div id="map"></div><div id="busy"></div></main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+"use strict";
+/* ---------- tabelle ISTAT ---------- */
+const REG={1:"Piemonte",2:"Valle d'Aosta",3:"Lombardia",4:"Trentino-Alto Adige",5:"Veneto",6:"Friuli-Venezia Giulia",7:"Liguria",8:"Emilia-Romagna",9:"Toscana",10:"Umbria",11:"Marche",12:"Lazio",13:"Abruzzo",14:"Molise",15:"Campania",16:"Puglia",17:"Basilicata",18:"Calabria",19:"Sicilia",20:"Sardegna"};
+const PROV={1:["Torino","TO",1],2:["Vercelli","VC",1],3:["Novara","NO",1],4:["Cuneo","CN",1],5:["Asti","AT",1],6:["Alessandria","AL",1],96:["Biella","BI",1],103:["Verbano-Cusio-Ossola","VB",1],7:["Aosta","AO",2],
+12:["Varese","VA",3],13:["Como","CO",3],14:["Sondrio","SO",3],15:["Milano","MI",3],16:["Bergamo","BG",3],17:["Brescia","BS",3],18:["Pavia","PV",3],19:["Cremona","CR",3],20:["Mantova","MN",3],97:["Lecco","LC",3],98:["Lodi","LO",3],108:["Monza e della Brianza","MB",3],
+21:["Bolzano","BZ",4],22:["Trento","TN",4],23:["Verona","VR",5],24:["Vicenza","VI",5],25:["Belluno","BL",5],26:["Treviso","TV",5],27:["Venezia","VE",5],28:["Padova","PD",5],29:["Rovigo","RO",5],
+30:["Udine","UD",6],31:["Gorizia","GO",6],32:["Trieste","TS",6],93:["Pordenone","PN",6],8:["Imperia","IM",7],9:["Savona","SV",7],10:["Genova","GE",7],11:["La Spezia","SP",7],
+33:["Piacenza","PC",8],34:["Parma","PR",8],35:["Reggio nell'Emilia","RE",8],36:["Modena","MO",8],37:["Bologna","BO",8],38:["Ferrara","FE",8],39:["Ravenna","RA",8],40:["Forlì-Cesena","FC",8],99:["Rimini","RN",8],
+45:["Massa-Carrara","MS",9],46:["Lucca","LU",9],47:["Pistoia","PT",9],48:["Firenze","FI",9],49:["Livorno","LI",9],50:["Pisa","PI",9],51:["Arezzo","AR",9],52:["Siena","SI",9],53:["Grosseto","GR",9],100:["Prato","PO",9],
+54:["Perugia","PG",10],55:["Terni","TR",10],41:["Pesaro e Urbino","PU",11],42:["Ancona","AN",11],43:["Macerata","MC",11],44:["Ascoli Piceno","AP",11],109:["Fermo","FM",11],
+56:["Viterbo","VT",12],57:["Rieti","RI",12],58:["Roma","RM",12],59:["Latina","LT",12],60:["Frosinone","FR",12],66:["L'Aquila","AQ",13],67:["Teramo","TE",13],68:["Pescara","PE",13],69:["Chieti","CH",13],
+70:["Campobasso","CB",14],94:["Isernia","IS",14],61:["Caserta","CE",15],62:["Benevento","BN",15],63:["Napoli","NA",15],64:["Avellino","AV",15],65:["Salerno","SA",15],
+71:["Foggia","FG",16],72:["Bari","BA",16],73:["Taranto","TA",16],74:["Brindisi","BR",16],75:["Lecce","LE",16],110:["Barletta-Andria-Trani","BT",16],76:["Potenza","PZ",17],77:["Matera","MT",17],
+78:["Cosenza","CS",18],79:["Catanzaro","CZ",18],80:["Reggio di Calabria","RC",18],101:["Crotone","KR",18],102:["Vibo Valentia","VV",18],
+81:["Trapani","TP",19],82:["Palermo","PA",19],83:["Messina","ME",19],84:["Agrigento","AG",19],85:["Caltanissetta","CL",19],86:["Enna","EN",19],87:["Catania","CT",19],88:["Ragusa","RG",19],89:["Siracusa","SR",19],
+90:["Sassari","SS",20],91:["Nuoro","NU",20],92:["Cagliari","CA",20],95:["Oristano","OR",20],104:["Olbia-Tempio","OT",20],105:["Ogliastra","OG",20],106:["Medio Campidano","VS",20],107:["Carbonia-Iglesias","CI",20],111:["Sud Sardegna","SU",20]};
+const SIGLA={}; for(const k in PROV) SIGLA[PROV[k][1]]=PROV[k];
+
+const PRESETS={
+  "Termografia (blu → rosso)":["#0b1d8a","#1e6fe0","#19c3c9","#3fd65a","#f4e01f","#f58a1f","#d7191c"],
+  "Divergente blu – bianco – rosso":["#2166ac","#67a9cf","#f7f7f7","#ef8a62","#b2182b"],
+  "Excel verde – giallo – rosso":["#63be7b","#ffeb84","#f8696b"],
+  "Viridis":["#440154","#3b528b","#21918c","#5ec962","#fde725"],
+  "Magma":["#000004","#51127c","#b73779","#fc8961","#fcfdbf"],
+  "Blu":["#eff3ff","#bdd7e7","#6baed6","#3182bd","#08519c"],
+  "Verdi":["#edf8e9","#bae4b3","#74c476","#31a354","#006d2c"],
+  "Arancio":["#feedde","#fdbe85","#fd8d3c","#e6550d","#a63603"],
+  "Grigi":["#f7f7f7","#cccccc","#969696","#636363","#252525"],
+  "Personalizzata":null
+};
+const BASEMAPS={
+  "OpenStreetMap standard":{u:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",max:19,a:"© OpenStreetMap contributors"},
+  "OSM Humanitarian":{u:"https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",max:19,a:"© OpenStreetMap contributors, stile HOT"},
+  "OSM Germania":{u:"https://tile.openstreetmap.de/{z}/{x}/{y}.png",max:18,a:"© OpenStreetMap contributors"},
+  "OpenTopoMap (rilievo)":{u:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",max:17,a:"© OpenStreetMap contributors, SRTM, stile © OpenTopoMap (CC-BY-SA)"},
+  "CyclOSM":{u:"https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",max:19,a:"© OpenStreetMap contributors, stile CyclOSM"},
+  "Carto Positron (chiara)":{u:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",max:20,sub:"abcd",a:"© OpenStreetMap contributors © CARTO"},
+  "Carto Positron senza etichette":{u:"https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",max:20,sub:"abcd",a:"© OpenStreetMap contributors © CARTO"},
+  "Carto Voyager":{u:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",max:20,sub:"abcd",a:"© OpenStreetMap contributors © CARTO"},
+  "Carto Dark Matter (scura)":{u:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",max:20,sub:"abcd",a:"© OpenStreetMap contributors © CARTO"},
+  "Esri World Topo (rilievo)":{u:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",max:19,a:"Tiles © Esri"},
+  "Esri Light Gray (neutra)":{u:"https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",max:16,a:"Tiles © Esri"},
+  "Esri World Imagery (satellite)":{u:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",max:19,a:"Tiles © Esri, Maxar, Earthstar Geographics"},
+  "Thunderforest Landscape":{key:"thunderforest",u:"https://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png?apikey={k}",max:22,a:"Maps © Thunderforest, Data © OpenStreetMap contributors"},
+  "Thunderforest Outdoors":{key:"thunderforest",u:"https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey={k}",max:22,a:"Maps © Thunderforest, Data © OpenStreetMap contributors"},
+  "Thunderforest Transport":{key:"thunderforest",u:"https://{s}.tile.thunderforest.com/transport/{z}/{x}/{y}.png?apikey={k}",max:22,a:"Maps © Thunderforest, Data © OpenStreetMap contributors"},
+  "Thunderforest Atlas":{key:"thunderforest",u:"https://{s}.tile.thunderforest.com/atlas/{z}/{x}/{y}.png?apikey={k}",max:22,a:"Maps © Thunderforest, Data © OpenStreetMap contributors"},
+  "Thunderforest Mobile Atlas (alto contrasto)":{key:"thunderforest",u:"https://{s}.tile.thunderforest.com/mobile-atlas/{z}/{x}/{y}.png?apikey={k}",max:22,a:"Maps © Thunderforest, Data © OpenStreetMap contributors"},
+  "Stadia Alidade Smooth (chiara)":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png?api_key={k}",max:20,a:"© Stadia Maps © OpenMapTiles © OpenStreetMap contributors"},
+  "Stadia Alidade Smooth Dark":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png?api_key={k}",max:20,a:"© Stadia Maps © OpenMapTiles © OpenStreetMap contributors"},
+  "Stadia Outdoors":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/outdoors/{z}/{x}/{y}.png?api_key={k}",max:20,a:"© Stadia Maps © OpenMapTiles © OpenStreetMap contributors"},
+  "Stamen Toner (bianco e nero)":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}.png?api_key={k}",max:20,a:"© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap contributors"},
+  "Stamen Toner Lite":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}.png?api_key={k}",max:20,a:"© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap contributors"},
+  "Stamen Terrain":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}.png?api_key={k}",max:18,a:"© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap contributors"},
+  "Stamen Watercolor":{key:"stadia",u:"https://tiles.stadiamaps.com/tiles/stamen_watercolor/{z}/{x}/{y}.jpg?api_key={k}",max:16,a:"© Stadia Maps © Stamen Design © OpenStreetMap contributors"},
+  "MapTiler Streets":{key:"maptiler",u:"https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={k}",max:20,a:"© MapTiler © OpenStreetMap contributors"},
+  "MapTiler Topo":{key:"maptiler",u:"https://api.maptiler.com/maps/topo-v2/256/{z}/{x}/{y}.png?key={k}",max:20,a:"© MapTiler © OpenStreetMap contributors"},
+  "MapTiler Dataviz (neutra)":{key:"maptiler",u:"https://api.maptiler.com/maps/dataviz/256/{z}/{x}/{y}.png?key={k}",max:20,a:"© MapTiler © OpenStreetMap contributors"},
+  "MapTiler Satellite":{key:"maptiler",u:"https://api.maptiler.com/maps/satellite/256/{z}/{x}/{y}.jpg?key={k}",max:20,a:"© MapTiler © OpenStreetMap contributors"},
+  "Personalizzato (URL XYZ)":"custom",
+  "Nessuno sfondo (bianco)":null
+};
+function curBase(){
+  const b=BASEMAPS[$("#base").value];
+  if(b&&b.key){const k=$("#key_"+b.key).value.trim();return k?{...b,u:b.u.replace("{k}",encodeURIComponent(k))}:null;}
+  if(b!=="custom")return b;
+  const u=$("#baseUrl").value.trim();if(!/^https?:\/\/.*\{z\}/.test(u))return null;
+  return{u:u.replace("{r}",""),max:19,sub:"abc",a:$("#baseAttr").value.trim()||"© OpenStreetMap contributors"};
+}
+
+/* ---------- stato ---------- */
+const S={feats:[],byCode:new Map(),byName:new Map(),selected:new Set(),layers:new Map(),data:new Map(),param:"",unmatched:[],tree:new Map(),labelLayer:null,spotLayer:null,stop:false,sources:[],styles:{},frame:null};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
+const normCode=v=>{if(v==null||v==="")return"";const s=String(v).trim().replace(/\.0+$/,"");return /^\d{1,6}$/.test(s)?s.padStart(6,"0"):"";};
+const busy=t=>{const b=$("#busy");b.textContent=t||"";b.style.display=t?"block":"none";return new Promise(r=>setTimeout(r,30));};
+const msg=(el,cls,html)=>{const e=$(el);e.className="msg "+cls;e.innerHTML=html;};
+
+/* ---------- mappa ---------- */
+const map=L.map("map",{zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:90,preferCanvas:true}).setView([42.3,12.6],6);
+map.createPane("frame");map.getPane("frame").style.zIndex=450;map.getPane("frame").style.pointerEvents="none";
+const frameR=L.svg({pane:"frame",padding:.3});
+map.createPane("spot");map.getPane("spot").style.zIndex=390;map.getPane("spot").style.pointerEvents="none";
+const canvasR=L.canvas({padding:.3}),spotR=L.svg({pane:"spot",padding:.3});
+let baseLayer=null;
+const legendCtl=L.control({position:"bottomleft"});
+legendCtl.onAdd=()=>{const d=L.DomUtil.create("div","legend");d.id="legend";d.style.display="none";return d;};
+legendCtl.addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+
+function setBase(){
+  if(baseLayer){map.removeLayer(baseLayer);baseLayer=null;}
+  const b=curBase();
+  if(b){baseLayer=L.tileLayer(b.u,{maxZoom:b.max,maxNativeZoom:b.max,subdomains:b.sub||"abc",attribution:b.a,crossOrigin:"anonymous",opacity:$("#baseOp").value/100}).addTo(map);}
+  map.setMaxZoom(b?b.max:20);
+}
+
+/* ---------- geometria ---------- */
+function polys(g){if(!g)return[];if(g.type==="Polygon")return[g.coordinates];if(g.type==="MultiPolygon")return g.coordinates;if(g.type==="GeometryCollection")return g.geometries.flatMap(polys);return[];}
+function utmInv(E,N,zone){
+  const a=6378137,f=1/298.257223563,n=f/(2-f),A=a/(1+n)*(1+n*n/4+n**4/64),k0=.9996;
+  const b=[n/2-2*n*n/3+37*n**3/96,n*n/48+n**3/15,17*n**3/480],d=[2*n-2*n*n/3-2*n**3,7*n*n/3-8*n**3/5,56*n**3/15];
+  const xi=N/(k0*A),eta=(E-500000)/(k0*A);let xp=xi,ep=eta;
+  for(let j=1;j<=3;j++){xp-=b[j-1]*Math.sin(2*j*xi)*Math.cosh(2*j*eta);ep-=b[j-1]*Math.cos(2*j*xi)*Math.sinh(2*j*eta);}
+  const chi=Math.asin(Math.sin(xp)/Math.cosh(ep));let phi=chi;for(let j=1;j<=3;j++)phi+=d[j-1]*Math.sin(2*j*chi);
+  const lam=(zone*6-183)*Math.PI/180+Math.atan2(Math.sinh(ep),Math.cos(xp));
+  return[lam*180/Math.PI,phi*180/Math.PI];
+}
+const mercInv=(x,y)=>[x/6378137*180/Math.PI,(2*Math.atan(Math.exp(y/6378137))-Math.PI/2)*180/Math.PI];
+function crsOf(gj,firstCoord){
+  const nm=gj.crs&&gj.crs.properties&&gj.crs.properties.name||"";const m=String(nm).match(/(\d{4,6})\s*$/);
+  let code=m?+m[1]:0;if(/CRS84/i.test(nm)||code===4326||code===4258||code===6706)return{fn:null};
+  if(!code){if(firstCoord&&(Math.abs(firstCoord[0])>180||Math.abs(firstCoord[1])>90))code=32632,gj._guess=true;else return{fn:null};}
+  if([32632,25832,6707,7791,3044].includes(code))return{fn:c=>utmInv(c[0],c[1],32),label:"UTM 32N"};
+  if([32633,25833,6708,7792,3045].includes(code))return{fn:c=>utmInv(c[0],c[1],33),label:"UTM 33N"};
+  if([3857,900913,3785].includes(code))return{fn:c=>mercInv(c[0],c[1]),label:"Web Mercator"};
+  return{error:"Sistema di coordinate EPSG:"+code+" non supportato. Riproietta il file in WGS84 (EPSG:4326), ad esempio con QGIS o mapshaper."};
+}
+function prep(f){
+  if(f.ready)return f;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9,best=0,cx=0,cy=0;
+  for(const p of polys(f.geom)){
+    p.forEach((ring,ri)=>{
+      if(f.fn)for(let i=0;i<ring.length;i++)ring[i]=f.fn(ring[i]);
+      if(ri)return;
+      let a=0,sx=0,sy=0;
+      for(let i=0,j=ring.length-1;i<ring.length;j=i++){const[xa,ya]=ring[j],[xb,yb]=ring[i],k=xa*yb-xb*ya;a+=k;sx+=(xa+xb)*k;sy+=(ya+yb)*k;
+        if(xb<x0)x0=xb;if(xb>x1)x1=xb;if(yb<y0)y0=yb;if(yb>y1)y1=yb;}
+      if(Math.abs(a)>best&&a!==0){best=Math.abs(a);cx=sx/(3*a);cy=sy/(3*a);}
+    });
+  }
+  f.fn=null;f.bbox=[x0,y0,x1,y1];f.center=best?[cx,cy]:[(x0+x1)/2,(y0+y1)/2];f.ready=true;return f;
+}
+
+/* ---------- caricamento confini ---------- */
+const CAND={
+  name:["comune","name","nome_com","nome","denominazione","den_com","denominazione_ita","name_3","den_uts","den_prov","den_pcm","prov_name","den_reg","reg_name"],
+  code:["pro_com_t","com_istat_code","pro_com","com_istat_code_num","cod_istat","codice_istat","istat","cod_com","codcom","ref:istat","codice"],
+  prov:["prov_name","den_uts","den_prov","den_pcm","provincia","nome_pro","name_2"],
+  provCode:["prov_istat_code_num","cod_prov","prov_istat_code","cod_uts"],
+  sigla:["prov_acr","sigla","sigla_provincia","sigla_prov"],
+  reg:["reg_name","den_reg","regione","nome_reg","name_1"],
+  regCode:["reg_istat_code_num","cod_reg","reg_istat_code"]
+};
+function detectFields(features){
+  const keys=new Map();for(const ft of features.slice(0,60))for(const k in(ft.properties||{}))keys.set(k.toLowerCase(),k);
+  const F={};for(const role in CAND){F[role]=null;for(const c of CAND[role])if(keys.has(c)){F[role]=keys.get(c);break;}}
+  if(F.name&&F.name===F.prov){/* file di province */F.prov=null;}
+  return F;
+}
+function addFeature(name,code,prov,sigla,reg,geom,fn,src){
+  if(!name||!polys(geom).length)return false;
+  if(code&&S.byCode.has(code))return false;
+  const id=S.feats.length,f={id,name:String(name),code,prov:prov||"—",sigla:sigla||"",reg:reg||"—",geom,fn,src,ready:false};
+  S.feats.push(f);if(code)S.byCode.set(code,id);
+  const keys=new Set([norm(name)]);String(name).split(/\/| - /).forEach(p=>keys.add(norm(p)));
+  for(const k of keys){if(!k)continue;if(!S.byName.has(k))S.byName.set(k,[]);S.byName.get(k).push(id);}
+  return true;
+}
+async function loadGeoFiles(files){
+  let added=0,dup=0,notes=[];
+  for(const file of files){
+    await busy("Lettura di "+file.name+"…");
+    let gj;try{gj=JSON.parse(await file.text());}catch(e){msg("#geoMsg","bad",esc(file.name)+" non è un JSON valido.");continue;}
+    let feats=[];
+    if(gj.type==="Topology"){
+      if(!window.topojson){msg("#geoMsg","bad","Libreria TopoJSON non caricata: converti il file in GeoJSON.");continue;}
+      for(const k in gj.objects){const fc=topojson.feature(gj,gj.objects[k]);feats.push(...(fc.features||[fc]));}
+    }else if(gj.type==="FeatureCollection")feats=gj.features;else if(gj.type==="Feature")feats=[gj];
+    else{msg("#geoMsg","bad",esc(file.name)+": formato non riconosciuto (serve una FeatureCollection).");continue;}
+    const first=feats.find(f=>polys(f.geometry).length);if(!first){notes.push(esc(file.name)+": nessun poligono.");continue;}
+    const crs=crsOf(gj,polys(first.geometry)[0][0][0]);
+    if(crs.error){msg("#geoMsg","bad",esc(file.name)+": "+crs.error);continue;}
+    if(crs.label)notes.push(esc(file.name)+": coordinate "+crs.label+(gj._guess?" (dedotto dai valori)":"")+" convertite in WGS84.");
+    const F=detectFields(feats);
+    if(!F.name){msg("#geoMsg","bad",esc(file.name)+": non trovo un campo con il nome del comune. Campi presenti: "+esc(Object.keys(first.properties||{}).join(", ")));continue;}
+    for(const ft of feats){
+      const p=ft.properties||{},code=F.code?normCode(p[F.code]):"";
+      let pc=F.provCode?parseInt(p[F.provCode],10)||0:0;if(pc>200)pc-=200;if(!pc&&code)pc=+code.slice(0,3);
+      const pt=PROV[pc],rc=F.regCode?parseInt(p[F.regCode],10):(pt?pt[2]:0);
+      const ok=addFeature(p[F.name],code,(F.prov&&p[F.prov])||(pt?pt[0]:(pc?"Provincia "+pc:"")),(F.sigla&&p[F.sigla])||(pt?pt[1]:""),(F.reg&&p[F.reg])||REG[rc]||(pt?REG[pt[2]]:""),ft.geometry,crs.fn,"file");
+      ok?added++:dup++;
+    }
+  }
+  await busy("");
+  buildTree();rematch();
+  if(added||dup)msg("#geoMsg",added?"ok":"warn",`${added.toLocaleString("it-IT")} confini aggiunti`+(dup?`, ${dup} già presenti o senza geometria`:"")+"."+(notes.length?"<br>"+notes.join("<br>"):""));
+  if(added){$("#st2").open=true;}
+}
+
+/* ---------- albero gerarchico ---------- */
+function buildTree(){
+  S.tree=new Map();
+  for(const f of S.feats){
+    if(!S.tree.has(f.reg))S.tree.set(f.reg,new Map());
+    const r=S.tree.get(f.reg);if(!r.has(f.prov))r.set(f.prov,[]);r.get(f.prov).push(f.id);
+  }
+  const cmp=(a,b)=>a.localeCompare(b,"it");
+  const t=$("#tree");t.innerHTML="";
+  for(const reg of[...S.tree.keys()].sort(cmp)){
+    t.append(nodeEl("reg",reg,reg));
+    const k=document.createElement("div");k.className="kids";k.hidden=true;k.dataset.for="reg|"+reg;t.append(k);
+  }
+  $("#s1state").textContent=S.feats.length.toLocaleString("it-IT")+" confini disponibili";
+  updateChecks();
+}
+function idsOf(kind,key){
+  if(kind==="com")return[+key];
+  if(kind==="reg")return[...(S.tree.get(key)||new Map()).values()].flat();
+  const[reg,prov]=key.split("|");return(S.tree.get(reg)||new Map()).get(prov)||[];
+}
+function nodeEl(kind,key,text,extra){
+  const d=document.createElement("div");d.className="node";d.dataset.kind=kind;d.dataset.key=key;
+  d.innerHTML=(kind==="com"?'<span style="width:16px"></span>':'<button class="caret" aria-label="Espandi">▸</button>')+
+    `<label><input type="checkbox"><span>${esc(text)}</span></label><span class="cnt">${extra?esc(extra):""}</span>`;
+  return d;
+}
+function expand(node){
+  const kind=node.dataset.kind,key=node.dataset.key,kids=node.nextElementSibling;
+  if(!kids||!kids.classList.contains("kids"))return;
+  kids.hidden=!kids.hidden;node.querySelector(".caret").textContent=kids.hidden?"▸":"▾";
+  if(kids.hidden||kids.childElementCount)return;
+  const cmp=(a,b)=>a.localeCompare(b,"it");
+  if(kind==="reg"){
+    for(const prov of[...S.tree.get(key).keys()].sort(cmp)){
+      kids.append(nodeEl("prov",key+"|"+prov,prov));
+      const k=document.createElement("div");k.className="kids";k.hidden=true;kids.append(k);
+    }
+  }else{
+    const ids=idsOf("prov",key).slice().sort((a,b)=>cmp(S.feats[a].name,S.feats[b].name));
+    for(const id of ids)kids.append(nodeEl("com",id,S.feats[id].name));
+  }
+  updateChecks();
+}
+function updateChecks(){
+  document.querySelectorAll("#tree .node, #results .node").forEach(n=>{
+    const ids=idsOf(n.dataset.kind,n.dataset.key),cb=n.querySelector("input");let c=0;for(const id of ids)if(S.selected.has(id))c++;
+    cb.checked=c>0&&c===ids.length;cb.indeterminate=c>0&&c<ids.length;
+    if(n.dataset.kind!=="com")n.querySelector(".cnt").textContent=c+"/"+ids.length;
+  });
+  $("#s2state").textContent=S.selected.size.toLocaleString("it-IT")+" comuni";
+}
+function onTreeEvent(e){
+  const n=e.target.closest(".node");if(!n)return;
+  if(e.type==="click"&&e.target.classList.contains("caret")){expand(n);return;}
+  if(e.type==="change"){const ids=idsOf(n.dataset.kind,n.dataset.key);for(const id of ids)e.target.checked?S.selected.add(id):S.selected.delete(id);selectionChanged();}
+}
+function runSearch(){
+  const q=norm($("#search").value),res=$("#results"),tree=$("#tree");
+  if(q.length<2){res.hidden=true;tree.hidden=false;updateChecks();return;}
+  res.hidden=false;tree.hidden=true;res.innerHTML="";let n=0;
+  for(const[reg,provs]of S.tree)for(const prov of provs.keys())if(norm(prov).includes(q))res.append(nodeEl("prov",reg+"|"+prov,"Provincia: "+prov));
+  for(const f of S.feats){if(n>=150)break;if(norm(f.name).includes(q)){res.append(nodeEl("com",f.id,f.name,f.sigla||f.prov));n++;}}
+  if(!res.childElementCount)res.innerHTML='<p class="hint" style="padding:6px 10px">Nessun risultato tra i confini caricati.</p>';
+  updateChecks();
+}
+
+/* ---------- dati Excel ---------- */
+function parseNum(v){
+  if(typeof v==="number")return isFinite(v)?v:null;if(v==null)return null;
+  let s=String(v).trim().replace(/\s|%|€/g,"");if(!s)return null;
+  if(s.includes(",")&&s.includes("."))s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");
+  else if(s.includes(","))s=s.replace(",",".");
+  const n=Number(s);return isFinite(n)?n:null;
+}
+function findFeature(name,code,prov){
+  if(code&&S.byCode.has(code))return{id:S.byCode.get(code)};
+  let c=S.byName.get(norm(name))||[];if(!c.length)return{};
+  if(c.length>1&&prov){const p=String(prov).trim(),pn=norm(p),pu=p.toUpperCase();const k=c.filter(id=>{const f=S.feats[id];return f.sigla.toUpperCase()===pu||norm(f.prov)===pn||(SIGLA[pu]&&norm(SIGLA[pu][0])===norm(f.prov));});if(k.length)c=k;}
+  if(c.length>1){const k=c.filter(id=>S.selected.has(id));if(k.length===1)c=k;}
+  return c.length===1?{id:c[0]}:{amb:true};
+}
+async function loadXls(files){let n=0;for(const f of files)if(await loadOne(f))n++;await busy("");if(n){rematch(true);$("#st4").open=true;}}
+async function loadOne(file){
+  let RAW;
+  if(!window.XLSX){msg("#xlsMsg","bad","Libreria Excel non caricata: controlla la connessione.");return false;}
+  await busy("Lettura di "+file.name+"…");
+  let wb;try{wb=/\.csv$/i.test(file.name)?XLSX.read(await file.text(),{type:"string",raw:true}):XLSX.read(await file.arrayBuffer());}
+  catch(e){await busy("");msg("#xlsMsg","bad",esc(file.name)+": impossibile leggere il file ("+esc(e.message)+").");return false;}
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true}).filter(r=>r.some(c=>c!=null&&c!==""));
+  if(rows.length<2){msg("#xlsMsg","bad",esc(file.name)+": il foglio è vuoto.");return false;}
+  const H=rows[0].map(h=>String(h??"").trim()),hn=H.map(norm);
+  const col=re=>hn.findIndex(h=>re.test(h));
+  const cCode=col(/istat|procom|codice|^cod/),cProv=col(/^prov|sigla/),cParam=col(/parametr|indicator|variabil|misura/),cVal=col(/^valor|^value|^dato$|^numero$/);
+  let cName=hn.findIndex((h,i)=>i!==cCode&&i!==cProv&&/comune|^nome|denominaz|municip|^ente/.test(h));
+  if(cName<0&&cCode<0)cName=0;
+  RAW=[];
+  if(cVal>=0){
+    const pn=cParam<0?H[cVal]:null;
+    for(const r of rows.slice(1)){const v=parseNum(r[cVal]);if(v==null)continue;RAW.push({name:cName>=0?r[cName]:"",code:cCode>=0?normCode(r[cCode]):"",prov:cProv>=0?r[cProv]:"",param:String(pn??r[cParam]??"Valore").trim(),value:v});}
+  }else{
+    const used=new Set([cName,cCode,cProv]);
+    H.forEach((h,i)=>{if(used.has(i)||!h)return;for(const r of rows.slice(1)){const v=parseNum(r[i]);if(v==null)continue;RAW.push({name:cName>=0?r[cName]:"",code:cCode>=0?normCode(r[cCode]):"",prov:cProv>=0?r[cProv]:"",param:h,value:v});}});
+  }
+  if(!RAW.length){msg("#xlsMsg","bad",esc(file.name)+": nessun valore numerico trovato. Controlla che le intestazioni siano nella prima riga.");return false;}
+  S.sources=S.sources.filter(x=>x.name!==file.name);S.sources.push({name:file.name,rows:RAW});return true;
+}
+function drawSources(){
+  $("#srcList").innerHTML=S.sources.map((x,i)=>`<div><span title="${esc(x.name)}">${esc(x.name)}</span><em>${x.rows.length} valori</em><button data-i="${i}">Rimuovi</button></div>`).join("");
+}
+function rematch(fromLoad){
+  drawSources();
+  S.data=new Map();const miss=new Map(),amb=new Map(),owner=new Map();let ok=0,tot=0;
+  S.sources.forEach((src,si)=>{for(const r of src.rows){tot++;
+    const m=findFeature(r.name,r.code,r.prov),label=(r.name||r.code)+(r.prov?", "+r.prov:"");
+    if(m.id==null){(m.amb?amb:miss).set(label,1);continue;}
+    let key=r.param;if(owner.has(key)&&owner.get(key)!==si)key=r.param+" ["+src.name.replace(/\.[^.]+$/,"")+"]";
+    owner.set(key,si);if(!S.data.has(key))S.data.set(key,new Map());S.data.get(key).set(m.id,r.value);ok++;}});
+  const RAW={length:tot};
+  if(!S.sources.length){$("#xlsMsg").innerHTML="";$("#xlsMsg").className="msg";}
+  S.unmatched=[...miss.keys()];
+  const params=[...S.data.keys()],sel=$("#param"),prev=S.param;
+  sel.innerHTML=params.length?params.map(p=>`<option>${esc(p)}</option>`).join(""):'<option value="">—</option>';
+  S.param=params.includes(prev)?prev:(params[0]||"");sel.value=S.param;
+  const list=(t,m)=>m.size?`<details class="more"><summary>${m.size} ${t}</summary><ul>${[...m.keys()].map(x=>"<li>"+esc(x)+"</li>").join("")}</ul></details>`:"";
+  if(S.sources.length)msg("#xlsMsg",miss.size||amb.size?"warn":"ok",`${S.sources.length} file, ${RAW.length} valori letti, ${ok} abbinati a un confine, ${params.length} ${params.length===1?"parametro":"parametri"}.`+
+    list("comuni senza confine (caricali al passo 1)",miss)+list("nomi ambigui: aggiungi la colonna Provincia o il codice ISTAT",amb));
+  $("#s3state").textContent=params.length?params.length+(params.length===1?" parametro":" parametri"):"nessun dato";
+  $("#selData").disabled=!ok;$("#osmFromData").disabled=!S.unmatched.length;
+  if(fromLoad&&!S.selected.size&&ok)selectWithData();else refresh();
+}
+function selectWithData(){for(const m of S.data.values())for(const id of m.keys())S.selected.add(id);selectionChanged(true);}
+function downloadTemplate(){
+  if(!window.XLSX)return;
+  const rows=[["Codice ISTAT","Comune","Provincia","Parametro","Valore"]];
+  const ids=[...S.selected];
+  if(ids.length)for(const id of ids){const f=S.feats[id];rows.push([f.code,f.name,f.sigla||f.prov,"Parametro 1",null]);}
+  else rows.push(["057027","Fara in Sabina","RI","Popolazione",13904],["057059","Rieti","RI","Popolazione",45907]);
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws["!cols"]=[{wch:13},{wch:30},{wch:10},{wch:22},{wch:12}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dati");XLSX.writeFile(wb,"modello_dati_comuni.xlsx");
+}
+
+/* ---------- ricerca confini su OSM (Nominatim) ---------- */
+async function osmSearch(){
+  const lines=$("#osmList").value.split(/\n/).map(s=>s.trim()).filter(Boolean);if(!lines.length)return;
+  S.stop=false;$("#osmStop").hidden=false;$("#osmGo").disabled=true;let found=0;const miss=[];
+  for(let i=0;i<lines.length&&!S.stop;i++){
+    let[name,prov]=lines[i].split(",").map(s=>s.trim());
+    const pu=(prov||"").toUpperCase(),provName=SIGLA[pu]?SIGLA[pu][0]:prov;
+    if(findFeature(name,"",prov).id!=null){found++;S.selected.add(findFeature(name,"",prov).id);continue;}
+    msg("#geoMsg","",`Ricerca ${i+1} di ${lines.length}: ${esc(name)}…`);
+    try{
+      const url="https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&addressdetails=1&extratags=1&countrycodes=it&limit=8&accept-language=it&polygon_threshold="+$("#osmDetail").value+"&q="+encodeURIComponent(name+(provName?", "+provName:"")+", Italia");
+      const r=await fetch(url);if(!r.ok)throw new Error("HTTP "+r.status);const gj=await r.json();
+      const c=(gj.features||[]).filter(f=>f.properties.category==="boundary"&&f.properties.type==="administrative"&&polys(f.geometry).length);
+      const rank=f=>(String(f.properties.name||"").split(/\/| - /).some(p=>norm(p)===norm(name))?0:10)+(["municipality","city","town","village"].includes(f.properties.addresstype)?0:3);
+      c.sort((a,b)=>rank(a)-rank(b));const hit=c[0];
+      if(hit&&rank(hit)<10){
+        const p=hit.properties,ad=p.address||{},sg=String(ad["ISO3166-2-lvl6"]||"").replace("IT-",""),pt=SIGLA[sg];
+        const code=normCode((p.extratags||{})["ref:ISTAT"]);
+        if(code&&S.byCode.has(code)){S.selected.add(S.byCode.get(code));found++;}
+        else if(addFeature(p.name,code,pt?pt[0]:(ad.county||ad.province||""),sg,pt?REG[pt[2]]:(ad.state||""),hit.geometry,null,"osm")){S.selected.add(S.feats.length-1);found++;}
+      }else miss.push(lines[i]);
+    }catch(e){miss.push(lines[i]+" ("+e.message+")");}
+    if(i<lines.length-1)await new Promise(r=>setTimeout(r,1100));
+  }
+  $("#osmStop").hidden=true;$("#osmGo").disabled=false;
+  buildTree();rematch();selectionChanged(true);
+  msg("#geoMsg",miss.length?"warn":"ok",`${found} confini trovati su ${lines.length}.`+(miss.length?`<details class="more" open><summary>${miss.length} non trovati</summary><ul>${miss.map(m=>"<li>"+esc(m)+"</li>").join("")}</ul></details>`:""));
+}
+
+/* ---------- scala colori ---------- */
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const rgb2hex=c=>"#"+c.map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");
+function stops(){
+  let s=PRESETS[$("#preset").value];
+  if(!s)s=$("#useMid").checked?[$("#c1").value,$("#c2").value,$("#c3").value]:[$("#c1").value,$("#c3").value];
+  return $("#invert").checked?s.slice().reverse():s;
+}
+function ramp(st,t){t=Math.max(0,Math.min(1,t));const p=t*(st.length-1),i=Math.min(Math.floor(p),st.length-2),f=p-i,a=hex2rgb(st[i]),b=hex2rgb(st[i+1]);return rgb2hex(a.map((v,k)=>v+(b[k]-v)*f));}
+const fmt=v=>v.toLocaleString("it-IT",{maximumFractionDigits:+$("#dec").value||0});
+function buildScale(){
+  const m=S.data.get(S.param);if(!m)return null;const vals=[];
+  for(const id of S.selected){const v=m.get(id);if(v!=null)vals.push(v);}
+  if(!vals.length)return null;vals.sort((a,b)=>a-b);
+  const umin=parseNum($("#vmin").value),umax=parseNum($("#vmax").value);
+  let min=umin??vals[0],max=umax??vals[vals.length-1];if(max<min)[min,max]=[max,min];
+  const st=stops(),mode=$("#mode").value,span=max-min||1;
+  if(mode==="cont")return{mode,min,max,st,color:v=>ramp(st,(v-min)/span),m};
+  let n=Math.max(2,Math.min(9,+$("#nclass").value||5)),br=[];
+  if(mode==="eq")for(let i=1;i<n;i++)br.push(min+span*i/n);
+  else{for(let i=1;i<n;i++)br.push(vals[Math.floor(i*vals.length/n)]);br=[...new Set(br)].filter(b=>b>min);}
+  n=br.length+1;const cols=Array.from({length:n},(_,i)=>ramp(st,n===1?.5:i/(n-1)));
+  const cls=v=>{let k=0;while(k<br.length&&v>=br[k])k++;return k;};
+  const items=cols.map((c,i)=>({color:c,label:fmt(i?br[i-1]:min)+" – "+fmt(i<br.length?br[i]:max)}));
+  return{mode,min,max,st,color:v=>cols[cls(v)],items,m};
+}
+let SCALE=null;
+const STYLE_KEYS=["preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","legTitle","unit","dec"];
+const snap=()=>Object.fromEntries(STYLE_KEYS.map(k=>{const e=$("#"+k);return[k,e.type==="checkbox"?e.checked:e.value];}));
+function setParam(p){
+  if(p===S.param)return;
+  S.styles[S.param]=snap();S.param=p;$("#param").value=p;const st=S.styles[p];
+  if(st)for(const k of STYLE_KEYS){const e=$("#"+k);e.type==="checkbox"?e.checked=st[k]:e.value=st[k];}
+  else{$("#vmin").value="";$("#vmax").value="";$("#legTitle").value="";}
+}
+function styleOf(id){
+  const v=SCALE?SCALE.m.get(id):null,w=$("#strokeW").value/10;
+  return{fillColor:v!=null?SCALE.color(v):$("#ndColor").value,fillOpacity:$("#fillOp").value/100,color:$("#strokeC").value,weight:w,opacity:w?1:0,stroke:w>0};
+}
+function legendModel(){
+  if(!$("#legShow").checked||!SCALE)return null;
+  const unit=$("#unit").value.trim(),title=($("#legTitle").value.trim()||S.param)+(unit?" ("+unit+")":"");
+  let nd=false;for(const id of S.selected)if(SCALE.m.get(id)==null){nd=true;break;}
+  return{title,nd,ndColor:$("#ndColor").value,cont:SCALE.mode==="cont",st:SCALE.st,ticks:[fmt(SCALE.min),fmt((SCALE.min+SCALE.max)/2),fmt(SCALE.max)],items:SCALE.items||[]};
+}
+function drawLegend(){
+  const el=$("#legend"),L_=legendModel();if(!L_){el.style.display="none";return;}
+  el.style.display="block";
+  let h=`<b>${esc(L_.title)}</b>`;
+  if(L_.cont)h+=`<div class="bar" style="background:linear-gradient(90deg,${L_.st.join(",")})"></div><div class="ticks">${L_.ticks.map(t=>"<span>"+t+"</span>").join("")}</div>`;
+  else h+=L_.items.map(i=>`<div class="it"><span class="sw" style="background:${i.color}"></span>${esc(i.label)}</div>`).join("");
+  if(L_.nd)h+=`<div class="it" style="margin-top:5px"><span class="sw" style="background:${L_.ndColor}"></span>Nessun dato</div>`;
+  el.innerHTML=h;
+}
+
+/* ---------- sincronizzazione mappa ---------- */
+function labelText(f){
+  const mode=$("#labels").value;if(!mode)return null;const v=SCALE?SCALE.m.get(f.id):null,out=[];
+  if(mode.includes("n"))out.push(f.name);if(mode.includes("v")&&v!=null)out.push(fmt(v));return out.length?out:null;
+}
+function tip(f){const v=S.data.get(S.param)?.get(f.id);return`<b>${esc(f.name)}</b>${f.sigla?" ("+esc(f.sigla)+")":""}<br>${S.param?esc(S.param)+": "+(v!=null?fmt(v)+" "+esc($("#unit").value):"nessun dato"):""}`;}
+let raf=0;function refresh(){cancelAnimationFrame(raf);raf=requestAnimationFrame(doRefresh);}
+function doRefresh(){
+  SCALE=buildScale();
+  for(const[id,l]of S.layers)if(!S.selected.has(id)){map.removeLayer(l);S.layers.delete(id);}
+  for(const id of S.selected){
+    let l=S.layers.get(id);
+    if(!l){const f=prep(S.feats[id]);l=L.geoJSON({type:"Feature",geometry:f.geom},{renderer:canvasR,smoothFactor:.5,style:()=>styleOf(id)});l.bindTooltip(()=>tip(f),{sticky:true});l.addTo(map);S.layers.set(id,l);}
+    else l.setStyle(styleOf(id));
+  }
+  if(S.spotLayer){map.removeLayer(S.spotLayer);S.spotLayer=null;}
+  if($("#spot").checked&&S.selected.size){
+    const rings=[[[-85,-540],[-85,540],[85,540],[85,-540]]];
+    for(const id of S.selected)for(const p of polys(S.feats[id].geom))for(const r of p)rings.push(r.map(c=>[c[1],c[0]]));
+    S.spotLayer=L.polygon(rings,{pane:"spot",renderer:spotR,stroke:false,fillColor:$("#spotC").value,fillOpacity:$("#spotOp").value/100,fillRule:"evenodd",interactive:false,smoothFactor:0}).addTo(map);
+  }
+  if(S.labelLayer){map.removeLayer(S.labelLayer);S.labelLayer=null;}
+  if($("#labels").value&&S.selected.size<=1500){
+    const g=L.layerGroup(),fs=+$("#labelSize").value||10;
+    for(const id of S.selected){const f=S.feats[id],t=labelText(f);if(!t)continue;
+      g.addLayer(L.marker([f.center[1],f.center[0]],{interactive:false,keyboard:false,icon:L.divIcon({className:"lbl",iconSize:[0,0],html:`<div style="font-size:${fs}px">${t.map(esc).join("<br>")}</div>`})}));}
+    S.labelLayer=g.addTo(map);
+  }
+  $("#rampPrev").style.background=`linear-gradient(90deg,${stops().join(",")})`;
+  $("#customRow").hidden=!!PRESETS[$("#preset").value];
+  drawLegend();
+}
+function selectionChanged(fit){updateChecks();doRefresh();if(fit)fitSel();}
+function fitSel(){
+  let b=null;for(const id of S.selected){const x=prep(S.feats[id]).bbox;b=b?[Math.min(b[0],x[0]),Math.min(b[1],x[1]),Math.max(b[2],x[2]),Math.max(b[3],x[3])]:x.slice();}
+  if(b)map.fitBounds([[b[1],b[0]],[b[3],b[2]]],{padding:[30,30]});
+}
+
+/* ---------- esportazione ---------- */
+const save=(blob,name)=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);};
+const stamp=()=>new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
+const mercX=lon=>lon/360+.5,mercY=lat=>.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI);
+const unX=x=>(x-.5)*360,unY=y=>(2*Math.atan(Math.exp((.5-y)*2*Math.PI))-Math.PI/2)*180/Math.PI;
+function view(){
+  if(S.frame){const f=S.frame,W=Math.max(300,+$("#expW").value||1400),k=W/(mercX(f.e)-mercX(f.w));
+    return{W,H:r2(k*(mercY(f.s)-mercY(f.n))),z:Math.log2(k/256),ox:k*mercX(f.w),oy:k*mercY(f.n),k,b:f};}
+  const s=map.getSize(),z=map.getZoom(),o=map.getPixelBounds().min,b=map.getBounds();
+  return{W:s.x,H:s.y,z,ox:o.x,oy:o.y,k:256*Math.pow(2,z),b:{w:b.getWest(),s:b.getSouth(),e:b.getEast(),n:b.getNorth()}};
+}
+let frRect=null,frH={};
+function fitRatio(f,expand){
+  const r=+$("#ratio").value;if(!r)return f;
+  let x0=mercX(f.w),x1=mercX(f.e),y0=mercY(f.n),y1=mercY(f.s),w=x1-x0,h=y1-y0,cx=(x0+x1)/2,cy=(y0+y1)/2;
+  if((w/h>r)===!!expand)h=w/r;else w=h*r;
+  return{w:unX(cx-w/2),e:unX(cx+w/2),n:unY(cy-h/2),s:unY(cy+h/2)};
+}
+function setFrame(f,keep){
+  S.frame=f;try{f?localStorage.setItem("cartogramma.frame",JSON.stringify(f)):localStorage.removeItem("cartogramma.frame");}catch(e){}
+  $("#frBox").value=f?[f.w,f.s,f.e,f.n].map(v=>v.toFixed(5)).join(", "):"";
+  if(keep&&frRect&&f){placeFrame();return;}
+  if(frRect){map.removeLayer(frRect);frRect=null;}for(const k in frH)map.removeLayer(frH[k]);frH={};
+  if(!f)return;
+  frRect=L.rectangle([[f.s,f.w],[f.n,f.e]],{pane:"frame",renderer:frameR,color:"#d4145a",weight:2,dashArray:"7 5",fill:false,interactive:false}).addTo(map);
+  for(const role of["nw","ne","se","sw","c"]){
+    const m=L.marker([0,0],{draggable:true,zIndexOffset:2000,title:role==="c"?"Sposta il riquadro":"Ridimensiona",icon:L.divIcon({className:"fh"+(role==="c"?" c":""),iconSize:[13,13]})}).addTo(map);
+    m.on("drag",()=>dragFrame(role,m.getLatLng()));m.on("dragend",()=>setFrame(S.frame,true));frH[role]=m;
+  }
+  placeFrame();
+}
+function placeFrame(){
+  const f=S.frame;frRect.setBounds([[f.s,f.w],[f.n,f.e]]);
+  const pos={nw:[f.n,f.w],ne:[f.n,f.e],se:[f.s,f.e],sw:[f.s,f.w],c:[unY((mercY(f.n)+mercY(f.s))/2),(f.w+f.e)/2]};
+  for(const k in frH)frH[k].setLatLng(pos[k]);
+}
+function dragFrame(role,ll){
+  const f=S.frame,z=map.getZoom();
+  if(role==="c"){const w=mercX(f.e)-mercX(f.w),h=mercY(f.s)-mercY(f.n),cx=mercX(ll.lng),cy=mercY(ll.lat);
+    S.frame={w:unX(cx-w/2),e:unX(cx+w/2),n:unY(cy-h/2),s:unY(cy+h/2)};}
+  else{
+    const opp={nw:[f.s,f.e],ne:[f.s,f.w],se:[f.n,f.w],sw:[f.n,f.e]}[role],A=map.project(opp,z),P=map.project(ll,z),r=+$("#ratio").value;
+    let w=Math.max(30,Math.abs(P.x-A.x)),h=Math.max(30,Math.abs(P.y-A.y));
+    if(r){if(w/h>r)h=w/r;else w=h*r;}
+    const sx=role.includes("e")?1:-1,sy=role.includes("s")?1:-1,Q=map.unproject(L.point(A.x+sx*w,A.y+sy*h),z);
+    S.frame={w:Math.min(opp[1],Q.lng),e:Math.max(opp[1],Q.lng),s:Math.min(opp[0],Q.lat),n:Math.max(opp[0],Q.lat)};
+  }
+  const g=S.frame,pos={nw:[g.n,g.w],ne:[g.n,g.e],se:[g.s,g.e],sw:[g.s,g.w],c:[unY((mercY(g.n)+mercY(g.s))/2),(g.w+g.e)/2]};
+  frRect.setBounds([[g.s,g.w],[g.n,g.e]]);for(const k in frH)if(k!==role)frH[k].setLatLng(pos[k]);
+}
+function frameFromSelection(){
+  let b=null;for(const id of S.selected){const x=prep(S.feats[id]).bbox;b=b?[Math.min(b[0],x[0]),Math.min(b[1],x[1]),Math.max(b[2],x[2]),Math.max(b[3],x[3])]:x.slice();}
+  if(!b){msg("#expMsg","warn","Seleziona prima i comuni al passo 2.");return;}
+  const mx_=(b[2]-b[0])*.06,my_=(b[3]-b[1])*.06;setFrame(fitRatio({w:b[0]-mx_,s:b[1]-my_,e:b[2]+mx_,n:b[3]+my_},true));fitFrame();
+}
+function frameFromView(){const b=map.getBounds().pad(-.08);setFrame(fitRatio({w:b.getWest(),s:b.getSouth(),e:b.getEast(),n:b.getNorth()},false));}
+function fitFrame(){const f=S.frame;if(f)map.fitBounds([[f.s,f.w],[f.n,f.e]],{padding:[40,40]});}
+const mx=(lon,V)=>V.k*(lon/360+.5)-V.ox, my=(lat,V)=>V.k*(.5-Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))/(2*Math.PI))-V.oy;
+const r2=n=>Math.round(n*100)/100;
+function pathD(f,V){
+  let d="";
+  for(const p of polys(f.geom))for(const ring of p){let seg="",n=0,lx=null,ly=null;
+    for(const c of ring){const x=r2(mx(c[0],V)),y=r2(my(c[1],V));if(x===lx&&y===ly)continue;seg+=(n?"L":"M")+x+" "+y;lx=x;ly=y;n++;}
+    if(n>2)d+=seg+"Z";}
+  return d;
+}
+async function renderBasemap(V,mult){
+  const b=curBase();if(!b)return null;
+  const zt=Math.min(b.max,Math.max(0,Math.ceil(V.z+Math.log2(mult)-1e-6))),s=mult*Math.pow(2,V.z-zt),f=Math.pow(2,zt-V.z);
+  const X0=V.ox*f,Y0=V.oy*f,OW=Math.round(V.W*mult),OH=Math.round(V.H*mult);
+  if(OW>14000||OH>14000)throw new Error("Immagine troppo grande ("+OW+"×"+OH+" px): riduci la risoluzione o la finestra.");
+  const tx0=Math.floor(X0/256),ty0=Math.floor(Y0/256),tx1=Math.floor((X0+OW/s)/256),ty1=Math.floor((Y0+OH/s)/256),nT=(tx1-tx0+1)*(ty1-ty0+1);
+  if(nT>900)throw new Error("Servirebbero "+nT+" tessere: troppe per i server OSM. Riduci la risoluzione dello sfondo o ingrandisci la mappa.");
+  const cv=document.createElement("canvas");cv.width=OW;cv.height=OH;const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,OW,OH);cx.globalAlpha=1;
+  const jobs=[],n=Math.pow(2,zt),sub=b.sub||"abc";let fail=0,done=0;
+  for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){if(ty<0||ty>=n)continue;jobs.push([tx,ty]);}
+  const work=async()=>{while(jobs.length){const[tx,ty]=jobs.shift(),xx=((tx%n)+n)%n;
+    const url=b.u.replace("{s}",sub[(xx+ty)%sub.length]).replace("{z}",zt).replace("{x}",xx).replace("{y}",ty);
+    await new Promise(res=>{const im=new Image();im.crossOrigin="anonymous";
+      im.onload=()=>{const x=Math.round((tx*256-X0)*s),y=Math.round((ty*256-Y0)*s),x2=Math.round(((tx+1)*256-X0)*s),y2=Math.round(((ty+1)*256-Y0)*s);cx.drawImage(im,x,y,x2-x,y2-y);res();};
+      im.onerror=()=>{fail++;res();};im.src=url;});
+    $("#busy").textContent=`Sfondo: ${++done} tessere di ${nT}…`;}};
+  await Promise.all(Array.from({length:6},work));
+  if($("#gray").checked){const id=cx.getImageData(0,0,OW,OH),d=id.data;for(let i=0;i<d.length;i+=4){const g=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];d[i]=d[i+1]=d[i+2]=g;}cx.putImageData(id,0,0);}
+  return{cv,fail,attr:b.a};
+}
+const slug=t=>String(t||"comuni").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"")||"comuni";
+const FONT='font-family="Helvetica, Arial, sans-serif"';
+function layerSVG(V,vis,sfx,visible){
+  const{W,H}=V,o=[],LM=legendModel(),gid="rampa"+sfx,sw=$("#strokeW").value/10;
+  o.push(`<g id="livello_${slug(S.param)}${sfx}" inkscape:groupmode="layer" inkscape:label="${esc(S.param||"Comuni")}"${visible?"":' style="display:none"'}>`);
+  if(LM&&LM.cont)o.push(`<defs><linearGradient id="${gid}">${LM.st.map((c,i)=>`<stop offset="${r2(i/(LM.st.length-1)*100)}%" stop-color="${c}"/>`).join("")}</linearGradient></defs>`);
+  o.push(`<g clip-path="url(#vista)">`);
+  o.push(`<g id="comuni${sfx}" fill-opacity="${$("#fillOp").value/100}" stroke="${sw?$("#strokeC").value:"none"}" stroke-width="${sw}" stroke-linejoin="round" fill-rule="evenodd">`);
+  for(const f of vis){const v=SCALE?SCALE.m.get(f.id):null,d=f._d;if(!d)continue;
+    o.push(`<path id="c_${esc(f.code||("n"+f.id))}${sfx}" data-comune="${esc(f.name)}" data-provincia="${esc(f.sigla||f.prov)}"${v!=null?` data-valore="${v}"`:""} fill="${styleOf(f.id).fillColor}" d="${d}"><title>${esc(f.name)}${v!=null?": "+fmt(v):""}</title></path>`);}
+  o.push(`</g>`);
+  if($("#labels").value){const fs=+$("#labelSize").value||10;
+    o.push(`<g id="etichette${sfx}" ${FONT} font-size="${fs}" font-weight="bold" text-anchor="middle">`);
+    for(const f of vis){const t=labelText(f);if(!t)continue;const x=r2(mx(f.center[0],V)),y=r2(my(f.center[1],V));if(x<0||y<0||x>W||y>H)continue;
+      const y0=y-(t.length-1)*fs*.55+fs*.35,sp=t.map((s,i)=>`<tspan x="${x}" y="${r2(y0+i*fs*1.1)}">${esc(s)}</tspan>`).join("");
+      o.push(`<g><text fill="none" stroke="#ffffff" stroke-width="${r2(fs*.28)}" stroke-linejoin="round" stroke-opacity=".9">${sp}</text><text fill="#111111">${sp}</text></g>`);}
+    o.push(`</g>`);}
+  o.push(`</g>`);
+  if(LM){
+    const rows=LM.cont?0:LM.items.length,lw=LM.cont?214:Math.max(150,Math.max(LM.title.length*6.6,...LM.items.map(i=>i.label.length*6.2+30))+24),lh=30+(LM.cont?34:rows*19)+(LM.nd?22:0)+6,x=14,y=r2(H-lh-14);
+    o.push(`<g id="legenda${sfx}" ${FONT} font-size="11.5" transform="translate(${x} ${y})"><rect width="${r2(lw)}" height="${lh}" rx="3" fill="#ffffff" fill-opacity=".94" stroke="#9aa5b1" stroke-width=".6"/><text x="12" y="20" font-weight="bold" font-size="12.5" fill="#18222d">${esc(LM.title)}</text>`);
+    let yy=30;
+    if(LM.cont){o.push(`<rect x="12" y="${yy}" width="190" height="12" fill="url(#${gid})" stroke="#9aa5b1" stroke-width=".6"/><text y="${yy+25}" fill="#18222d"><tspan x="12">${LM.ticks[0]}</tspan><tspan x="107" text-anchor="middle">${LM.ticks[1]}</tspan><tspan x="202" text-anchor="end">${LM.ticks[2]}</tspan></text>`);yy+=34;}
+    else for(const it of LM.items){o.push(`<rect x="12" y="${yy}" width="14" height="14" fill="${it.color}" stroke="#9aa5b1" stroke-width=".6"/><text x="33" y="${yy+11}" fill="#18222d">${esc(it.label)}</text>`);yy+=19;}
+    if(LM.nd)o.push(`<rect x="12" y="${yy+3}" width="14" height="14" fill="${LM.ndColor}" stroke="#9aa5b1" stroke-width=".6"/><text x="33" y="${yy+14}" fill="#18222d">Nessun dato</text>`);
+    o.push(`</g>`);
+  }
+  o.push(`</g>`);return o.join("\n");
+}
+/* params: elenco dei parametri da scrivere come livelli; bgUrl: dataURL, null (nessuno sfondo) o false (solo vettori, fondo trasparente) */
+function buildSVG(V,bgUrl,pxScale,params){
+  const{W,H,b}=V,o=[],cur=S.param;params=params||[cur];
+  const vis=[...S.selected].map(id=>prep(S.feats[id])).filter(f=>f.bbox[0]<=b.e&&f.bbox[2]>=b.w&&f.bbox[1]<=b.n&&f.bbox[3]>=b.s);
+  for(const f of vis)f._d=pathD(f,V);
+  o.push(`<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${r2(W*(pxScale||1))}" height="${r2(H*(pxScale||1))}" viewBox="0 0 ${W} ${H}">`);
+  o.push(`<title>${esc(params.length>1?"Cartogramma":($("#legTitle").value||cur||"Cartogramma"))}</title>`);
+  o.push(`<metadata>Riquadro WGS84 O,S,E,N: ${[b.w,b.s,b.e,b.n].map(v=>v.toFixed(6)).join(", ")}</metadata>`);
+  o.push(`<defs><clipPath id="vista"><rect width="${W}" height="${H}"/></clipPath></defs>`);
+  if(bgUrl!==false)o.push(`<rect id="fondo" width="${W}" height="${H}" fill="#ffffff"/>`);
+  if(bgUrl)o.push(`<image id="sfondo" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none" opacity="${$("#baseOp").value/100}" xlink:href="${bgUrl}" href="${bgUrl}"/>`);
+  if($("#spot").checked&&vis.length)o.push(`<path id="spotlight" clip-path="url(#vista)" fill="${$("#spotC").value}" fill-opacity="${$("#spotOp").value/100}" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z${vis.map(f=>f._d).join("")}"/>`);
+  const multi=params.length>1;
+  params.forEach((p,i)=>{setParam(p);SCALE=buildScale();o.push(layerSVG(V,vis,multi?"_"+(i+1):"",!multi||p===cur||(!params.includes(cur)&&i===0)));});
+  setParam(cur);SCALE=buildScale();
+  for(const f of vis)delete f._d;
+  if($("#attr").checked){const bm=curBase(),t=(bm&&bgUrl!==null?bm.a:"Confini © OpenStreetMap contributors (ODbL)"),tw=t.length*5+12;
+    o.push(`<g id="attribuzione" ${FONT} font-size="9"><rect x="${r2(W-tw)}" y="${r2(H-15)}" width="${tw}" height="15" fill="#ffffff" fill-opacity=".8"/><text x="${r2(W-6)}" y="${r2(H-4.5)}" text-anchor="end" fill="#333333">${esc(t)}</text></g>`);}
+  o.push(`</svg>`);return o.join("\n");
+}
+async function doExport(kind){
+  if(kind!=="bg"&&!S.selected.size){msg("#expMsg","warn","Seleziona almeno un comune al passo 2.");return;}
+  const V=view(),mult=+$("#mult").value;let bg=null;
+  try{
+    const all=[...S.data.keys()];
+    if((kind==="zip"||kind==="layers")&&all.length<2)throw new Error("Servono almeno due parametri: carica altri Excel o aggiungi parametri al file.");
+    const needBg=kind==="bg"||kind==="png"||kind==="zip"||$("#embedBg").checked;
+    if(needBg&&curBase()){await busy("Composizione dello sfondo…");bg=await renderBasemap(V,mult);}
+    if(kind==="bg"){if(!bg)throw new Error("Nessuno sfondo selezionato.");await new Promise(r=>bg.cv.toBlob(b=>{save(b,"sfondo_"+stamp()+".png");r();},"image/png"));}
+    else if(kind==="layers"){await busy("Scrittura dell'SVG a livelli…");save(new Blob([buildSVG(V,bg?bg.cv.toDataURL("image/png"):null,1,all)],{type:"image/svg+xml"}),"cartogramma_livelli_"+stamp()+".svg");}
+    else if(kind==="zip"){
+      await busy("Scrittura degli SVG…");const emb=$("#embedBg").checked&&bg,url=emb?bg.cv.toDataURL("image/png"):null,files=all.map(p=>[slug(p)+".svg",buildSVG(V,url,1,[p])]);
+      if(window.JSZip){const z=new JSZip();for(const[n,t]of files)z.file(n,t);if(bg&&!emb)z.file("sfondo.png",await new Promise(r=>bg.cv.toBlob(r,"image/png")));
+        save(await z.generateAsync({type:"blob",compression:"DEFLATE"}),"cartogrammi_"+stamp()+".zip");}
+      else for(const[n,t]of files){save(new Blob([t],{type:"image/svg+xml"}),n);await new Promise(r=>setTimeout(r,500));}
+      doRefresh();
+    }
+    else if(kind==="svg"){await busy("Scrittura dell'SVG…");const svg=buildSVG(V,bg?bg.cv.toDataURL("image/png"):null);save(new Blob([svg],{type:"image/svg+xml"}),"cartogramma_"+stamp()+".svg");}
+    else{
+      await busy("Rasterizzazione…");const svg=buildSVG(V,false,mult),cv=document.createElement("canvas");cv.width=bg?bg.cv.width:Math.round(V.W*mult);cv.height=bg?bg.cv.height:Math.round(V.H*mult);const cx=cv.getContext("2d");
+      cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);if(bg){cx.globalAlpha=$("#baseOp").value/100;cx.drawImage(bg.cv,0,0);cx.globalAlpha=1;}
+      const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"}));
+      await new Promise((res,rej)=>{const im=new Image();im.onload=()=>{cx.drawImage(im,0,0,cv.width,cv.height);res();};im.onerror=()=>rej(new Error("rasterizzazione non riuscita"));im.src=url;});
+      URL.revokeObjectURL(url);await new Promise(r=>cv.toBlob(b=>{save(b,"cartogramma_"+stamp()+".png");r();},"image/png"));
+    }
+    msg("#expMsg",bg&&bg.fail?"warn":"ok","File scaricato ("+V.W+"×"+Math.round(V.H)+" unità, "+(S.frame?"riquadro fisso":"vista corrente")+(bg?", sfondo "+bg.cv.width+"×"+bg.cv.height+" px":"")+")."+(bg&&bg.fail?" "+bg.fail+" tessere non scaricate: riprova o cambia sfondo.":""));
+  }catch(e){msg("#expMsg","bad",esc(e.message)+(/(tainted|insecure)/i.test(e.message)?" Il server delle tessere non consente l'esportazione: scegli un altro sfondo.":""));}
+  await busy("");
+}
+function exportGeo(){
+  if(!S.selected.size){msg("#expMsg","warn","Seleziona almeno un comune.");return;}
+  const fc={type:"FeatureCollection",features:[...S.selected].map(id=>{const f=prep(S.feats[id]),p={name:f.name,com_istat_code:f.code,prov_name:f.prov,prov_acr:f.sigla,reg_name:f.reg};
+    for(const[k,m]of S.data)if(m.get(id)!=null)p[k]=m.get(id);return{type:"Feature",properties:p,geometry:f.geom};})};
+  save(new Blob([JSON.stringify(fc)],{type:"application/geo+json"}),"selezione_"+stamp()+".geojson");
+}
+
+/* ---------- eventi ---------- */
+function bindDrop(zone,input,fn){
+  const z=$(zone),i=$(input);z.onclick=()=>i.click();z.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();i.click();}};
+  i.onchange=()=>{if(i.files.length)fn([...i.files]);i.value="";};
+  z.ondragover=e=>{e.preventDefault();z.classList.add("over");};z.ondragleave=()=>z.classList.remove("over");
+  z.ondrop=e=>{e.preventDefault();z.classList.remove("over");if(e.dataTransfer.files.length)fn([...e.dataTransfer.files]);};
+}
+bindDrop("#dropGeo","#fileGeo",loadGeoFiles);bindDrop("#dropXls","#fileXls",loadXls);
+$("#srcList").onclick=e=>{const i=e.target.dataset.i;if(i==null)return;S.sources.splice(+i,1);rematch();};
+$("#frSel").onclick=frameFromSelection;$("#frView").onclick=frameFromView;$("#frDel").onclick=()=>setFrame(null);
+$("#ratio").onchange=()=>{if(S.frame)setFrame(fitRatio(S.frame,false));};
+$("#frBox").onchange=e=>{const v=e.target.value.split(/[;,\s]+/).map(Number).filter(x=>isFinite(x));if(v.length===4&&v[0]<v[2]&&v[1]<v[3]){setFrame({w:v[0],s:v[1],e:v[2],n:v[3]});fitFrame();}else if(!e.target.value.trim())setFrame(null);else msg("#expMsg","bad","Servono quattro numeri: ovest, sud, est, nord.");};
+$("#expZip").onclick=()=>doExport("zip");$("#expLayers").onclick=()=>doExport("layers");
+try{const f=JSON.parse(localStorage.getItem("cartogramma.frame"));if(f&&f.w<f.e)setFrame(f);}catch(e){}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",x===b));$("#tab-file").hidden=b.dataset.tab!=="file";$("#tab-osm").hidden=b.dataset.tab!=="osm";});
+for(const id of["#tree","#results"]){$(id).addEventListener("click",onTreeEvent);$(id).addEventListener("change",onTreeEvent);}
+$("#search").oninput=runSearch;
+$("#selNone").onclick=()=>{S.selected.clear();selectionChanged();};$("#selFit").onclick=fitSel;$("#selData").onclick=selectWithData;
+$("#tpl").onclick=downloadTemplate;$("#osmGo").onclick=osmSearch;$("#osmStop").onclick=()=>S.stop=true;
+$("#osmFromData").onclick=()=>{$("#osmList").value=S.unmatched.filter(x=>!/^\d{6}/.test(x)).join("\n");};
+$("#preset").innerHTML=Object.keys(PRESETS).map(k=>`<option>${k}</option>`).join("");
+{const free=[],keyed=[];for(const k in BASEMAPS)(BASEMAPS[k]&&BASEMAPS[k].key?keyed:free).push(`<option>${k}</option>`);
+ $("#base").innerHTML=`<optgroup label="Senza chiave">${free.join("")}</optgroup><optgroup label="Con chiave API">${keyed.join("")}</optgroup>`;}
+$("#param").onchange=e=>{setParam(e.target.value);refresh();};
+for(const id of["preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","fillOp","ndColor","strokeC","strokeW","labels","labelSize","spot","spotC","spotOp","legShow","legTitle","unit","dec"])$("#"+id).addEventListener("input",refresh);
+const LOCAL=location.protocol==="file:";
+function baseNote(){
+  const kb=BASEMAPS[$("#base").value];
+  if(kb&&kb.key&&!$("#key_"+kb.key).value.trim()){$("#keysBox").open=true;$("#baseMsg").innerHTML="Questo sfondo richiede una chiave API: inseriscila qui sopra nel campo "+{thunderforest:"Thunderforest",stadia:"Stadia / Stamen",maptiler:"MapTiler"}[kb.key]+".";return;}
+  const osmOrg=/tile\.openstreetmap\.org/.test((curBase()||{}).u||"");
+  $("#baseMsg").innerHTML=LOCAL&&osmOrg?"I server di openstreetmap.org rifiutano le richieste da un file aperto con doppio clic (manca il referer) e mostrano «Access blocked». Per usare questo sfondo apri il Terminale nella cartella del file, lancia <code>python3 -m http.server 8000</code> e vai su <code>http://localhost:8000/cartogramma.html</code>. Gli altri sfondi funzionano anche così.":"";
+}
+if(LOCAL)$("#base").value="Carto Voyager";
+for(const p of["thunderforest","stadia","maptiler"]){const e=$("#key_"+p);try{e.value=localStorage.getItem("cartogramma.key."+p)||"";}catch(x){}
+  e.onchange=()=>{try{localStorage.setItem("cartogramma.key."+p,e.value.trim());}catch(x){}setBase();baseNote();};}
+$("#keyShow").onchange=ev=>{for(const p of["thunderforest","stadia","maptiler"])$("#key_"+p).type=ev.target.checked?"text":"password";};
+const showCustom=()=>{$("#customBase").hidden=BASEMAPS[$("#base").value]!=="custom";};
+try{$("#baseUrl").value=localStorage.getItem("cartogramma.baseUrl")||"";$("#baseAttr").value=localStorage.getItem("cartogramma.baseAttr")||"";}catch(e){}
+for(const id of["baseUrl","baseAttr"])$("#"+id).onchange=()=>{try{localStorage.setItem("cartogramma."+id,$("#"+id).value);}catch(e){}setBase();};
+$("#base").onchange=()=>{showCustom();setBase();baseNote();};baseNote();$("#baseOp").oninput=()=>baseLayer&&baseLayer.setOpacity($("#baseOp").value/100);
+$("#gray").onchange=e=>$("#map").classList.toggle("gray",e.target.checked);
+$("#expSvg").onclick=()=>doExport("svg");$("#expBg").onclick=()=>doExport("bg");$("#expPng").onclick=()=>doExport("png");$("#expGeo").onclick=exportGeo;
+setBase();doRefresh();
+</script>
+</body>
+</html>
