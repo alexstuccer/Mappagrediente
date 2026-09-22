@@ -184,8 +184,14 @@ main{position:relative;height:100vh}
         <label style="font-size:12.5px"><input type="checkbox" id="useMid" checked> centro</label></div></div>
       <div class="row"><label class="k"></label><div class="v"><label><input type="checkbox" id="invert"> Inverti la scala</label></div></div>
       <div class="row"><label class="k" for="mode">Classificazione</label><div class="v">
-        <select id="mode"><option value="cont">Continua</option><option value="eq">Classi uguali</option><option value="quant">Quantili</option></select>
+        <select id="mode"><option value="cont">Continua</option><option value="eq">Classi uguali</option><option value="quant">Quantili</option><option value="manual">Soglie manuali</option></select>
         <input type="number" id="nclass" min="2" max="9" value="5" style="width:60px" title="Numero di classi"></div></div>
+      <div id="brBox" hidden style="margin:2px 0 10px 126px">
+        <div id="brInputs" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        <div class="row" style="margin:6px 0 0"><button id="brEq">Ricalcola da intervalli uguali</button><button id="brQ">Da quantili</button></div>
+        <p class="hint" style="margin:4px 0 0">Una soglia in meno del numero di classi, in valore assoluto. Cambiando il numero di classi le soglie già scritte vengono conservate e le nuove riempite in automatico. Le soglie sono proprie di ogni livello.</p>
+        <input type="hidden" id="breaks">
+      </div>
       <div class="row"><label class="k">Minimo e massimo</label><div class="v"><input type="number" id="vmin" placeholder="auto" step="any"><input type="number" id="vmax" placeholder="auto" step="any"></div></div>
       <div class="row"><label class="k" for="fillOp">Opacità colore</label><div class="v"><input type="range" id="fillOp" min="0" max="100" value="80"></div></div>
       <div class="row"><label class="k">Senza dato</label><div class="v"><input type="color" id="ndColor" value="#d9dde1"><input type="range" id="ndOp" min="0" max="100" value="80" title="Opacità dei comuni senza valore"></div></div>
@@ -263,7 +269,7 @@ main{position:relative;height:100vh}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 "use strict";
-const VERSION="1.7",VERSION_DATE="19.09.2026";
+const VERSION="1.8",VERSION_DATE="22.09.2026";
 /* ---------- tabelle ISTAT ---------- */
 const REG={1:"Piemonte",2:"Valle d'Aosta",3:"Lombardia",4:"Trentino-Alto Adige",5:"Veneto",6:"Friuli-Venezia Giulia",7:"Liguria",8:"Emilia-Romagna",9:"Toscana",10:"Umbria",11:"Marche",12:"Lazio",13:"Abruzzo",14:"Molise",15:"Campania",16:"Puglia",17:"Basilicata",18:"Calabria",19:"Sicilia",20:"Sardegna"};
 const PROV={1:["Torino","TO",1],2:["Vercelli","VC",1],3:["Novara","NO",1],4:["Cuneo","CN",1],5:["Asti","AT",1],6:["Alessandria","AL",1],96:["Biella","BI",1],103:["Verbano-Cusio-Ossola","VB",1],7:["Aosta","AO",2],
@@ -655,21 +661,39 @@ function buildScale(){
   if(mode==="cont")return{mode,min,max,st,color:v=>ramp(st,(v-min)/span),m};
   let n=Math.max(2,Math.min(9,+$("#nclass").value||5)),br=[];
   if(mode==="eq")for(let i=1;i<n;i++)br.push(min+span*i/n);
+  else if(mode==="manual"){br=[...new Set(getBreaks())].sort((a,b)=>a-b);if(!br.length)for(let i=1;i<n;i++)br.push(min+span*i/n);}
   else{for(let i=1;i<n;i++)br.push(vals[Math.floor(i*vals.length/n)]);br=[...new Set(br)].filter(b=>b>min);}
   n=br.length+1;const cols=Array.from({length:n},(_,i)=>ramp(st,n===1?.5:i/(n-1)));
   const cls=v=>{let k=0;while(k<br.length&&v>=br[k])k++;return k;};
-  const items=cols.map((c,i)=>({color:c,label:fmtV(i?br[i-1]:min)+" – "+fmtV(i<br.length?br[i]:max)}));
+  const items=cols.map((c,i)=>({color:c,label:mode==="manual"?(i===0?"< "+fmtV(br[0]):i===br.length?"≥ "+fmtV(br[i-1]):fmtV(br[i-1])+" – "+fmtV(br[i])):fmtV(i?br[i-1]:min)+" – "+fmtV(i<br.length?br[i]:max)}));
   return{mode,min,max,st,color:v=>cols[cls(v)],items,m};
 }
 let SCALE=null;
-const STYLE_KEYS=["disp","preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","legTitle","unit","dec"];
+function autoBreaks(kind){
+  const m=S.data.get(S.param);if(!m)return[];const vals=[];for(const id of S.selected){const v=m.get(id);if(v!=null)vals.push(v);}
+  if(!vals.length)return[];vals.sort((a,b)=>a-b);const n=Math.max(2,Math.min(9,+$("#nclass").value||5)),min=vals[0],max=vals[vals.length-1],br=[];
+  for(let i=1;i<n;i++)br.push(kind==="quant"?vals[Math.floor(i*vals.length/n)]:min+(max-min)*i/n);
+  return br.map(v=>+v.toPrecision(8));
+}
+const getBreaks=()=>$("#breaks").value.split(/[;,\s]+/).map(parseNum).filter(v=>v!=null);
+function renderBreaks(fromInputs){
+  if(fromInputs){$("#breaks").value=[...document.querySelectorAll("#brInputs input")].map(e=>e.value).filter(v=>v!=="").join(", ");return;}
+  const n=Math.max(2,Math.min(9,+$("#nclass").value||5))-1,cur=getBreaks(),auto=autoBreaks("eq");
+  const br=cur.slice(0,n);
+  if(br.length<n){const m=S.data.get(S.param);let max=-Infinity;if(m)for(const id of S.selected){const v=m.get(id);if(v!=null&&v>max)max=v;}
+    const last=br.length?br[br.length-1]:null,k=n-br.length;
+    for(let i=1;i<=k;i++)br.push(last==null?(auto[i-1]??""):+(isFinite(max)&&max>last?last+(max-last)*i/(k+1):last+i).toPrecision(8));}
+  $("#brInputs").innerHTML=br.map((v,i)=>`<input type="number" step="any" data-i="${i}" value="${v}" style="width:92px" title="Soglia ${i+1}">`).join("");
+  $("#breaks").value=br.filter(v=>v!=="").join(", ");
+}
+const STYLE_KEYS=["breaks","disp","preset","c1","c2","c3","useMid","invert","mode","nclass","vmin","vmax","legTitle","unit","dec"];
 const snap=()=>Object.fromEntries(STYLE_KEYS.map(k=>{const e=$("#"+k);return[k,e.type==="checkbox"?e.checked:e.value];}));
 function setParam(p){
   if(p===S.param)return;
   S.styles[S.param]=snap();S.param=p;$("#param").value=p;const st=S.styles[p];
   if(st)for(const k of STYLE_KEYS){const e=$("#"+k);e.type==="checkbox"?e.checked=st[k]:e.value=st[k];}
-  else{$("#vmin").value="";$("#vmax").value="";$("#legTitle").value="";}
-  drawLayers();
+  else{$("#vmin").value="";$("#vmax").value="";$("#legTitle").value="";$("#breaks").value="";}
+  if($("#mode").value==="manual")renderBreaks();drawLayers();
 }
 function styleOf(id){
   const v=SCALE?SCALE.m.get(id):null,w=$("#strokeW").value/10;
@@ -743,7 +767,7 @@ function doRefresh(){
     S.labelLayer=g.addTo(map);
   }
   $("#rampPrev").style.background=`linear-gradient(90deg,${stops().join(",")})`;
-  $("#customRow").hidden=!!PRESETS[$("#preset").value];
+  $("#customRow").hidden=!!PRESETS[$("#preset").value];$("#brBox").hidden=$("#mode").value!=="manual";
   drawLegend();
 }
 function selectionChanged(fit){updateChecks();drawLayers();doRefresh();if(fit)fitSel();}
@@ -949,6 +973,7 @@ async function loadProject(prj){
   buildTree();rematch();
   if(prj.param&&S.data.has(prj.param)){S.param=prj.param;$("#param").value=prj.param;}
   const st=S.styles[S.param];if(st)for(const k of STYLE_KEYS)setCtl(k,st[k]);
+  if($("#mode").value==="manual")renderBreaks();
   $("#map").classList.toggle("gray",$("#gray").checked);showCustom();setBase();baseNote();
   setFrame(prj.frame&&prj.frame.w<prj.frame.e?prj.frame:null);doRefresh();updateChecks();
   S.frame?fitFrame():fitSel();await busy("");
@@ -969,6 +994,11 @@ $("#srcList").onclick=e=>{const i=e.target.dataset.i;if(i==null)return;S.sources
 $("#frSel").onclick=frameFromSelection;$("#frView").onclick=frameFromView;$("#frDel").onclick=()=>setFrame(null);
 $("#ratio").onchange=()=>{if(S.frame)setFrame(fitRatio(S.frame,false));};
 $("#frBox").onchange=e=>{const v=e.target.value.split(/[;,\s]+/).map(Number).filter(x=>isFinite(x));if(v.length===4&&v[0]<v[2]&&v[1]<v[3]){setFrame({w:v[0],s:v[1],e:v[2],n:v[3]});fitFrame();}else if(!e.target.value.trim())setFrame(null);else msg("#expMsg","bad","Servono quattro numeri: ovest, sud, est, nord.");};
+$("#mode").addEventListener("change",()=>{if($("#mode").value==="manual")renderBreaks();});
+$("#nclass").addEventListener("input",()=>{if($("#mode").value==="manual")renderBreaks();});
+$("#brInputs").addEventListener("input",()=>{renderBreaks(true);refresh();});
+$("#brEq").onclick=()=>{$("#breaks").value="";renderBreaks();refresh();};
+$("#brQ").onclick=()=>{$("#breaks").value=autoBreaks("quant").join(", ");renderBreaks();refresh();};
 $("#layerList").onchange=e=>{if(e.target.name==="lay"){setParam(e.target.value);refresh();}};
 $("#layerAdd").onclick=()=>$("#fileXls").click();drawLayers();
 initLegendDrag();map.on("move zoom resize viewreset",placeLegend);
